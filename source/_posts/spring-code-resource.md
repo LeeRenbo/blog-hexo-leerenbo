@@ -25,7 +25,7 @@ Java的标准java.net.URL类和各种URL前缀的标准处理程序不足以满�
 - WritableResource - 可写入资源，用于获取 OutputStream
 - ContextResource - 用于获取封闭上下文的相对路径
 
-##### 2.1.1 InputStreamSource
+##### 2.1.1 [InputStreamSource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/InputStreamSource.java)
 ```java
 package org.springframework.core.io;
 
@@ -33,23 +33,23 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
-获取 InputStream 对象的简单接口。
-是 Spring Resource 的父接口。
-对于一次性流，可以使用 org.springframework.core.io.InputStreamResource 提供任何给定的 InputStream 。 
-org.springframework.core.io.ByteArrayResource 或任何基于 Resource 的实现可以当做实体化的实例，允许人们多次读取底层内容流。
-这使得该接口可用作，例如：邮件附件的抽象内容源。
+ * 获取 {@link InputStream} 对象的简单接口。
+ * 是 {@link Resource} 的父接口。
+ * 对于一次性流，可以使用 {@link InputStreamResource} 提供任何给定的 {@code InputStream} 。
+ * {@link ByteArrayResource} 或任何基于 {@code Resource} 的实现可以当做实体化的实例使用，允许人们多次读取底层内容流。
+ * 这使得该接口可用作，例如：邮件附件的抽象内容源。
  */
 public interface InputStreamSource {
 
 	/**
-    返回一个 InputStream 。预期每个调用都会创建一个新的流。
-    当您考虑如JavaMail等的API，在创建邮件附件时，需要多次读取流时，这一需求尤为重要，。 
-    对于这种用例，需要每个getInputStream（）调用返回一个新的流。
+	 * 返回一个 InputStream 。预期每个调用都会创建一个新的流。
+	 * 当您考虑如JavaMail等的API，在创建邮件附件时，需要多次读取流时，这一需求尤为重要。
+	 * 对于这种用例，需要每个getInputStream（）调用返回一个新的流。
 	 */
 	InputStream getInputStream() throws IOException;
 }
 ```
-##### 2.1.2 Resource
+##### 2.1.2 [Resource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/Resource.java)
 ```java
 package org.springframework.core.io;
 
@@ -121,8 +121,8 @@ public interface Resource extends InputStreamSource {
 
 	/**
 	 * 返回{@link ReadableByteChannel}。
-	 * 预计每个调用都会创建一个<i>新的</ i>频道。
-	 * 默认实现返回{@link Channels＃newChannel（InputStream）}，结果为{@link #getInputStream（）}）。
+	 * 预计每个调用都会创建一个新的channel。
+	 * 默认实现返回{@link Channels＃newChannel(InputStream)}，使用{@link #getInputStream()}的结果}）。
 	 * @since 5.0
 	 */
 	default ReadableByteChannel readableChannel() throws IOException {
@@ -159,7 +159,7 @@ public interface Resource extends InputStreamSource {
 }
 ```
 
-##### 2.1.3 WritableResource
+##### 2.1.3 [WritableResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/WritableResource.java)
 
 ```java
 package org.springframework.core.io;
@@ -168,8 +168,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 /**
- * 用于支持写入的资源的扩展接口。
- * 提供{@link #getOutputStream（）OutputStream 存取器}。
+ * 用于支持写入的扩展资源的接口。
+ * 提供{@link #getOutputStream（）OutputStream 访问方法}。
  */
 public interface WritableResource extends Resource {
 
@@ -188,10 +188,20 @@ public interface WritableResource extends Resource {
 	 */
 	OutputStream getOutputStream() throws IOException;
 
+	/**
+	 * 返回一个{@link WritableByteChannel}。
+	 * 预计每次调用都会创建一个新鲜的 channel。
+	 * 默认实现返回{@link Channels#newChannel(OutputStream)}，使用{@link #getOutputStream()}的结果）。
+	 * @since 5.0
+	 */
+	default WritableByteChannel writableChannel() throws IOException {
+		return Channels.newChannel(getOutputStream());
+	}
+
 }
 ```
 
-##### 2.1.4 ContextResource
+##### 2.1.4 [ContextResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/ContextResource.java)
 
 ```java
 package org.springframework.core.io;
@@ -212,24 +222,8 @@ public interface ContextResource extends Resource {
 ```
 ### 2.2 抽象实现类
 
-##### 2.2.1 AbstractResource
+##### 2.2.1 [AbstractResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/AbstractResource.java)
 ```java
-package org.springframework.core.io;
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-
-import org.springframework.core.NestedIOException;
-import org.springframework.util.Assert;
-import org.springframework.util.ResourceUtils;
-
 /**
  *  实现{@link Resource}的便利基类，预先实现典型行为。
  *  “存在”方法将检查是否可以打开File或InputStream;
@@ -238,203 +232,167 @@ import org.springframework.util.ResourceUtils;
  *  “toString”将返回描述。
  */
 public abstract class AbstractResource implements Resource {
-
-	/**
-	 * This implementation checks whether a File can be opened,
-	 * falling back to whether an InputStream can be opened.
-	 * This will cover both directories and content resources.
-	 */
-	@Override
-	public boolean exists() {
-		// Try file existence: can we find the file in the file system?
-		try {
-			return getFile().exists();
-		}
-		catch (IOException ex) {
-			// Fall back to stream existence: can we open the stream?
-			try {
-				InputStream is = getInputStream();
-				is.close();
-				return true;
-			}
-			catch (Throwable isEx) {
-				return false;
-			}
-		}
-	}
-
-	/**
-	 * This implementation always returns {@code true}.
-	 */
-	@Override
-	public boolean isReadable() {
-		return true;
-	}
-
-	/**
-	 * This implementation always returns {@code false}.
-	 */
-	@Override
-	public boolean isOpen() {
-		return false;
-	}
-
-	/**
-	 * This implementation always returns {@code false}.
-	 */
-	@Override
-	public boolean isFile() {
-		return false;
-	}
-
-	/**
-	 * This implementation throws a FileNotFoundException, assuming
-	 * that the resource cannot be resolved to a URL.
-	 */
-	@Override
-	public URL getURL() throws IOException {
-		throw new FileNotFoundException(getDescription() + " cannot be resolved to URL");
-	}
-
-	/**
-	 * This implementation builds a URI based on the URL returned
-	 * by {@link #getURL()}.
-	 */
-	@Override
-	public URI getURI() throws IOException {
-		URL url = getURL();
-		try {
-			return ResourceUtils.toURI(url);
-		}
-		catch (URISyntaxException ex) {
-			throw new NestedIOException("Invalid URI [" + url + "]", ex);
-		}
-	}
-
-	/**
-	 * This implementation throws a FileNotFoundException, assuming
-	 * that the resource cannot be resolved to an absolute file path.
-	 */
-	@Override
-	public File getFile() throws IOException {
-		throw new FileNotFoundException(getDescription() + " cannot be resolved to absolute file path");
-	}
-
-	/**
-	 * This implementation returns {@link Channels#newChannel(InputStream)} with the result of
-	 * {@link #getInputStream()}.
-	 */
-	@Override
-	public ReadableByteChannel readableChannel() throws IOException {
-		return Channels.newChannel(getInputStream());
-	}
-
-	/**
-	 * This implementation reads the entire InputStream to calculate the
-	 * content length. Subclasses will almost always be able to provide
-	 * a more optimal version of this, e.g. checking a File length.
-	 * @see #getInputStream()
-	 * @throws IllegalStateException if {@link #getInputStream()} returns null.
-	 */
-	@Override
-	public long contentLength() throws IOException {
-		InputStream is = getInputStream();
-		Assert.state(is != null, "Resource InputStream must not be null");
-		try {
-			long size = 0;
-			byte[] buf = new byte[255];
-			int read;
-			while ((read = is.read(buf)) != -1) {
-				size += read;
-			}
-			return size;
-		}
-		finally {
-			try {
-				is.close();
-			}
-			catch (IOException ex) {
-			}
-		}
-	}
-
-	/**
-	 * This implementation checks the timestamp of the underlying File,
-	 * if available.
-	 * @see #getFileForLastModifiedCheck()
-	 */
-	@Override
-	public long lastModified() throws IOException {
-		long lastModified = getFileForLastModifiedCheck().lastModified();
-		if (lastModified == 0L) {
-			throw new FileNotFoundException(getDescription() +
-					" cannot be resolved in the file system for resolving its last-modified timestamp");
-		}
-		return lastModified;
-	}
-
-	/**
-	 * Determine the File to use for timestamp checking.
-	 * <p>The default implementation delegates to {@link #getFile()}.
-	 * @return the File to use for timestamp checking (never {@code null})
-	 * @throws IOException if the resource cannot be resolved as absolute
-	 * file path, i.e. if the resource is not available in a file system
-	 */
-	protected File getFileForLastModifiedCheck() throws IOException {
-		return getFile();
-	}
-
-	/**
-	 * This implementation throws a FileNotFoundException, assuming
-	 * that relative resources cannot be created for this resource.
-	 */
-	@Override
-	public Resource createRelative(String relativePath) throws IOException {
-		throw new FileNotFoundException("Cannot create a relative resource for " + getDescription());
-	}
-
-	/**
-	 * This implementation always returns {@code null},
-	 * assuming that this resource type does not have a filename.
-	 */
-	@Override
-	public String getFilename() {
-		return null;
-	}
-
-
-	/**
-	 * This implementation returns the description of this resource.
-	 * @see #getDescription()
-	 */
-	@Override
-	public String toString() {
-		return getDescription();
-	}
-
-	/**
-	 * This implementation compares description strings.
-	 * @see #getDescription()
-	 */
-	@Override
-	public boolean equals(Object obj) {
-		return (obj == this ||
-			(obj instanceof Resource && ((Resource) obj).getDescription().equals(getDescription())));
-	}
-
-	/**
-	 * This implementation returns the description's hash code.
-	 * @see #getDescription()
-	 */
-	@Override
-	public int hashCode() {
-		return getDescription().hashCode();
-	}
-
+    
 }
 
 ```
 
-##### 2.2.2 FileSystemResource
+##### 2.2.2 [DescriptiveResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/DescriptiveResource.java)
+```java
+/**
+ * 简单的 {@link Resource} 实现，保存资源描述，但不指向实际可读的资源。
+ * 如果API需要 {@code Resource} 参数，但不一定用于实际读取时被用作占位符。
+ */
+public class DescriptiveResource extends AbstractResource {
+	private final String description;
+}
+```
+
+##### 2.2.3 [VfsResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/VfsResource.java)
+```java
+/**
+ * 基于JBoss VFS的{@link Resource}实现。
+ * 从Spring 4.0开始，该类支持JBoss AS 6+上的VFS 3.x（软件包{@code org.jboss.vfs}），特别兼容JBoss AS 7和WildFly 8。
+ */
+public class VfsResource extends AbstractResource {
+    	private final Object resource;
+}
+```
 
 
+##### 2.2.4 [InputStreamResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/InputStreamResource.java)
+```java
+/**
+ * {@link Resource}实现给定的{@link InputStream}。
+ * 只有在没有其他特定的 {@code Resource} 实现适用的情况下才使用。
+ * 特别是，尽可能选择{@link ByteArrayResource}或任何基于文件的{@code Resource}实现。
+ *
+ * 与其他{@code Resource}实现相反，这是一个已经打开的资源的描述符，因此从{@link #isOpen()}返回 {@code true}。
+ * 如果您需要将资源描述符保留在某处，或者您需要多次读取数据流，请勿使用{@code InputStreamResource}。
+ *
+ */
+public class InputStreamResource extends AbstractResource {
+	private final InputStream inputStream;
+	private final String description;
+	private boolean read = false;
+}
+```
+
+##### 2.2.5 [ByteArrayResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/ByteArrayResource.java)
+```java
+/**
+ * 一个给定的字节数组的 {@link Resource}实现。
+ * 为给定的字节数组创建{@link ByteArrayInputStream}。
+ * 用于从任何给定的字节数组加载内容，而无需使用单次使用的{@link InputStreamResource}。
+ * 特别适用于从本地内容创建邮件附件，JavaMail需要能够多次读取流。
+ */
+public class ByteArrayResource extends AbstractResource {
+	private final byte[] byteArray;
+	private final String description;
+}
+```
+
+##### 2.2.6 [AbstractFileResolvingResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/AbstractFileResolvingResource.java)
+```java
+/**
+ * 用于将URL解析为文件引用的资源的抽象基类，例如{@link UrlResource}或{@link ClassPathResource}。
+ * 在URL中检测“文件”协议以及 JBoss“vfs”协议，相应地解析文件系统引用。
+ */
+public abstract class AbstractFileResolvingResource extends AbstractResource {
+}
+
+```
+
+##### 2.2.7 [UrlResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/UrlResource.java)
+```java
+/**
+ * {@code java.net.URL}定位器的{@link Resource}实现。
+ * 在{@code“file：”}协议的情况下支持解析为{@code URL}，还可以作为{@code File}。
+ */
+public class UrlResource extends AbstractFileResolvingResource {
+
+	/**
+	 * 如果有值，原始URI; 用于URI和文件访问。
+	 */
+	private final URI uri;
+
+	/**
+	 * 原始URL，用于实际访问。
+	 */
+	private final URL url;
+
+	/**
+	 * 已清理的URL（具有标准化路径），用于比较。
+	 */
+	private final URL cleanedUrl;
+}
+```
+
+##### 2.2.8 [ClassPathResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/ClassPathResource.java)
+```java
+/**
+ * 路径资源的{@link Resource}实现。 使用给定的{@link ClassLoader}或给定的{@link Class}来加载资源。
+ * 如果类路径资源驻留在文件系统中，则支持{@code java.io.File}的解析。
+ * 但不支持JAR中的资源
+ * 始终支持解析为URL。
+ */
+public class ClassPathResource extends AbstractFileResolvingResource {
+	private final String path;
+	private ClassLoader classLoader;
+	private Class<?> clazz;
+}
+```
+
+##### 2.2.9 [PathResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/PathResource.java)
+```java
+/**
+ * {@code java.nio.file.Path}句柄的{@link Resource}实现。
+ * 支持分辨率为File，也可以作为URL。
+ * 实现扩展的{@link WritableResource}接口。
+ */
+public class PathResource extends AbstractResource implements WritableResource {
+	private final Path path;
+}
+```
+
+###### 2.2.10 [FileSystemResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/FileSystemResource.java)
+```java
+/**
+ * {@code java.io.File}句柄的{@link Resource}实现。
+ * 支持作为{@code File}和{@code URL}的解析。
+ * 实现扩展的{@link WritableResource}界面。
+ */
+public class FileSystemResource extends AbstractResource implements WritableResource {
+	private final File file;
+	private final String path;
+}
+
+```
+
+###### 2.2.10 [FileSystemContextResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/FileSystemResourceLoader.java)
+```java
+	/**
+	 * FileSystemResource，通过实现ContextResource接口显式表达上下文相对路径。
+	 */
+	private static class FileSystemContextResource extends FileSystemResource implements ContextResource {
+	}
+```
+
+###### 2.2.11 [ClassRelativeContextResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/ClassRelativeResourceLoader.java)
+```java
+	/**
+	 * ClassPathResource通过实现ContextResource接口显式表达上下文相对路径。
+	 */
+	private static class ClassRelativeContextResource extends ClassPathResource implements ContextResource {
+		private final Class<?> clazz;
+}
+```
+
+###### 2.2.12 [ClassPathContextResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/DefaultResourceLoader.java)
+```java
+	/**
+	 * ClassPathResource通过实现ContextResource接口显式表达上下文相对路径。
+	 */
+	protected static class ClassPathContextResource extends ClassPathResource implements ContextResource {
+	}
+```
