@@ -1,5 +1,5 @@
 ---
-title: spring 源码解析 2.统一io Resource ResourceLoader 
+title: spring 源码解析 2.统一io Resource
 date: 2017-04-30 14:05:40
 tags:
 - spring container
@@ -327,6 +327,9 @@ public class UrlResource extends AbstractFileResolvingResource {
 	private final URL cleanedUrl;
 }
 ```
+所有URL都具有标准化的字符串表示形式，以便使用适当的标准化前缀来区分URL类型。
+例如：文件系统路径 `file:`，HTTP协议`http:`，FTP`ftp:`
+除了几个已知前缀如`classpatch`会创建适当的Resource，不认识的前缀会作为标准 URL 串创。建UrlResource。
 
 ##### 2.2.8 [ClassPathResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/ClassPathResource.java)
 ```java
@@ -342,6 +345,8 @@ public class ClassPathResource extends AbstractFileResolvingResource {
 	private Class<?> clazz;
 }
 ```
+`classpath:`创建ClassPathResource。
+从classpath下加载的资源。不管是从线程classloader，给定classloader还是class。都可以使用此Resource。
 
 ##### 2.2.9 [PathResource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/PathResource.java)
 ```java
