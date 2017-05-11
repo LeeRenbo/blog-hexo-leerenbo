@@ -125,4 +125,48 @@ public class FileSystemResourceLoader extends DefaultResourceLoader {
 }
 ```
 
-### 4.4
+### 4.4 [PathMatchingResourcePatternResolver](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/io/support/PathMatchingResourcePatternResolver.java)
+```java
+/**
+ * 一个{@link ResourcePatternResolver}实现，能够将指定的资源位置路径解析为一个或多个匹配的资源。
+ * 源路径可以是一个简单的路径，它具有与目标{@link org.springframework.core.io.Resource}的一对一映射，或者可以包含特殊的"{@code classpath*:}"前缀 和/或 内部Ant风格的正则表达式（使用Spring的{@link org.springframework.util.AntPathMatcher}实用程序进行匹配）。后两者都是有效的通配符。
+ *
+ * 没有通配符：
+ * 在简单的情况下，如果指定的位置路径不以{@code "classpath*:}"前缀开头，并且不包含PathMatcher模式，则此解析器将简单地通过{@code getResource()}调用底层的{@code ResourceLoader}。
+ * 示例：真实的URL，例如"{@code file:C:/context.xml}"，伪URL（例如"{@code classpath:/context.xml}"）和简单的无前缀路径，如"{@code /WEB-INF/context.xml}"。
+ * 后者将以针对{@code ResourceLoader}的特定方式解析（例如{@code WebApplicationContext}的{@code ServletContextResource}）。
+ *
+ * Ant风格模式：
+ * 当路径位置包含Ant样式模式时，例如：
+ * /WEB-INF/*-context.xml
+ * com/mycompany/** /applicationContext.xml
+ * file:C:/some/path/*-context.xml
+ * classpath:com/mycompany/** /applicationContext.xml
+ * 解析器遵循更复杂但定义的过程来尝试解决通配符。 它为最后一个非通配符段的路径生成一个{@code Resource} ，并从中获取一个{@code URL}。 如果此URL不“{@code jar：}”URL或容器中的特定变体（例如：WebLogic中的{@code zip：}，WebSphere中的{@code wsjar}等），则从它获取{@code java.io.File}，并用于通过走文件系统来解析通配符。
+ * 在一个jar URL的情况下，解析器从它获取一个{@code java.net.JarURLConnection} 或手动解析jar URL，然后遍历jar文件的内容，以解决通配符。
+ *
+ * 对可移植性的影响：
+ * 如果指定的路径已经是文件URL（明确地或隐含地），因为基本的{@code ResourceLoader}是一个文件系统的路径，那么通配符将保证以完全可移植的方式工作。
+ * 如果指定的路径是类路径位置，则解析器必须通过{@code Classloader.getResource()}调用获取最后一个非通配符路径段URL。由于这只是路径的一个节点（而不是最后的文件），在这种情况下，它实际上是未定义的（在ClassLoader Javadocs中）返回的是什么样的URL。实际上，它通常是一个{@code java.io.File}，表示类路径资源解析为文件系统位置的目录，或某个类别的jar URL其中类路径资源解析为一个jar位置。尽管如此，这种操作仍然存在可移植性问题。
+ * 如果为最后一个非通配符段获取了一个jar URL，解析器必须能够从中获取一个{@code java.net.JarURLConnection}，或者手动解析jar URL，以便能够便利该jar的内容，并解决通配符。这将在大多数环境中工作，但在其他环境中将会失败，并且强烈建议您在依赖它之前，彻底地在您的特定环境中彻底测试来自jar的资源的通配符解析。
+ *
+ *
+ * {@code classpath*:}前缀：
+ * 通过"{@code classpath*:}"前缀，可以检索具有相同名称的多个类路径资源。
+ * 例如，“{@code classpath *：META-INF / beans.xml}”将在类路径中找到所有“beans.xml”文件，无论是在“classes”目录还是在JAR文件中。这对于在每个jar文件中的同一位置自动检测同名的配置文件特别有用。在内部，这是通过{@code ClassLoader.getResources()}调用发生的，并且是完全可移植的。
+ * "classpath*:"前缀也可以与其他位置路径中的PathMatcher模式相结合，例如"classpath*:META-INF/*-beans.xml"。在这种情况下，分辨率策略相当简单：在最后一个非通配符路径段上使用{@code ClassLoader.getResources()}调用，以获取类加载器层次结构中的所有匹配资源，然后便利每个资源上面描述的相同的PathMatcher分辨率策略用于通配符子路径。
+ *
+ * 其他注意：
+ * 警告：请注意，与匹配模式启动相结合时，"{@code classpath*:}" 只能与模式启动前的至少一个根目录一起工作，除非实际的目标 文件驻留在文件系统中。 这意味着像 "{@code classpath*:*.xml}" 这样的模式将不会从jar文件的根目录中检索文件，而只能从扩展目录的根目录中获取文件。 这源于JDK的{@code ClassLoader.getResources()}方法中的限制，该方法传入的空String仅返回文件系统位置（指示潜在的搜索根）。此{@code ResourcePatternResolver}实现是通过{@link URLClassLoader}内省和“java.class.path”清单评估来减轻jar根查找限制; 然而，没有可移植性的保证。
+ *
+ * 警告： 如果要搜索的根包存在多个类路径位置，则不能保证具有 "classpath:" 资源的Ant样式模式可以找到匹配的资源。
+ * 这是因为一个资源，如com/mycompany/package1/service-context.xml 可能只在一个位置，但是当一个路径如 classpath:com/mycompany/** /service-context.xml
+ * 用于尝试解决它，解析器将解决 {@code getResource("com/mycompany");} 返回的（第一个）URL。 如果此基本包节点存在于多个类加载器位置中，则实际的最终资源可能不在下面。
+ * 因此，在这种情况下，最好使用具有相同Ant样式模式的“{@code classpath *：}”，这将搜索包含根包的所有类路径位置。
+ */
+public class PathMatchingResourcePatternResolver implements ResourcePatternResolver {
+	private static final Log logger = LogFactory.getLog(PathMatchingResourcePatternResolver.class);
+	private final ResourceLoader resourceLoader;
+	private PathMatcher pathMatcher = new AntPathMatcher();
+}
+```
