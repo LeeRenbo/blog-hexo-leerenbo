@@ -9,3 +9,6 @@ categories:
 ---
 ## 1.Java反射，类型
 ![](/assets/img/spring/javaType.png)
+
+## 2.Spring类型解析
+![](/assets/img/spring/springConvertType.png)
