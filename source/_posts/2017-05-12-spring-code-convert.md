@@ -89,6 +89,40 @@ public interface GenericConverter {
 }
 ```
 
+##### 3.1.5 [ConverterAdapter](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/convert/support/GenericConversionService.java)
+```java
+/**
+ * 将 {@link Converter} 适配到 {@link GenericConverter}。
+ */
+private final class ConverterAdapter implements ConditionalGenericConverter {
+    private final Converter<Object, Object> converter;
+    private final ConvertiblePair typeInfo;
+    private final ResolvableType targetType;
+}
+```
+
+##### 3.1.6 [ConverterFactoryAdapter](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/convert/support/GenericConversionService.java)
+```java
+/**
+ * 将 {@link ConverterFactory} 适配到 {@link GenericConverter} 。
+ */
+private final class ConverterFactoryAdapter implements ConditionalGenericConverter {
+    private final ConverterFactory<Object, Object> converterFactory;
+    private final ConvertiblePair typeInfo;
+}
+```
+
+##### 3.1.7 [Converters](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/convert/support/GenericConversionService.java)
+```java
+/**
+ * 管理注册服务的所有转换器。
+ */
+private static class Converters {
+    private final Set<GenericConverter> globalConverters = new LinkedHashSet<>();
+    private final Map<ConvertiblePair, ConvertersForPair> converters = new LinkedHashMap<>(36);
+}
+```
+
 ## 4. Service
 ### 4.1 接口
 ##### 4.1.1 [ConversionService](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/convert/ConversionService.java)
@@ -178,7 +212,26 @@ public interface ConfigurableConversionService extends ConversionService, Conver
 ### 4.2 实现
 ##### 4.2.1[GenericConversionService](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/convert/support/GenericConversionService.java)
 ```java
+/**
+ * 基于 {@link ConversionService} 的实现，适用于大多数环境。
+ * 通过 {@link ConfigurableConversionService} 接口间接实现 {@link ConverterRegistry} 作为注册API。
+ */
+public class GenericConversionService implements ConfigurableConversionService {
+	/**
+	 * 不需要转换时使用的一般NO-OP转换器。
+	 */
+	private static final GenericConverter NO_OP_CONVERTER = new NoOpConverter("NO_OP");
 
+	/**
+	 * 当没有转换器可用时用作缓存条目。
+	 * 此转换器从不返回。
+	 */
+	private static final GenericConverter NO_MATCH = new NoOpConverter("NO_MATCH");
+
+	private final Converters converters = new Converters();
+
+	private final Map<ConverterCacheKey, GenericConverter> converterCache = new ConcurrentReferenceHashMap<>(64);
+}
 
 ```
 
