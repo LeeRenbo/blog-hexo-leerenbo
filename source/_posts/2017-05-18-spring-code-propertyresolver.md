@@ -313,12 +313,15 @@ public abstract class AbstractPropertyResolver implements ConfigurablePropertyRe
  */
 public class PropertySourcesPropertyResolver extends AbstractPropertyResolver {
 
-	private final PropertySources propertySources;
+	private final PropertySougggtirces propertySources;
 
 }
 ```
 
-## 3. Environment
+## 3. PropertySource
+
+
+## 4. Environment
 ![](/assets/img/spring/springEnvPropertyResolver.png)
 
 ###
