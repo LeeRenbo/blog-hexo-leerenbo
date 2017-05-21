@@ -3,6 +3,4 @@
 *.iws
 *.iml
 *.ipr
-db.json
 .deploy_git
-public

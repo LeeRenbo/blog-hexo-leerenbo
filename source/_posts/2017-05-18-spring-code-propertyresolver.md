@@ -319,9 +319,281 @@ public class PropertySourcesPropertyResolver extends AbstractPropertyResolver {
 ```
 
 ## 3. PropertySource
+### 3.1 PropertySource抽象与实现
+##### 3.1.1 [PropertySource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/PropertySource.java)
+```java
+/**
+ * 表示 name/value 属性对的来源的抽象基类。底层的 {@linkplain #getSource（）source object} 可以任何 {@code T} 类型的封装属性。示例包括 {@link java.util.Properties} 对象，{@link java.util.Map}对象，{@code ServletContext} 和 {@code ServletConfig} 对象（用于访问init参数）。浏览 {@code PropertySource} 类型层次结构以查看提供的实现。
+ *
+ * 通常不会孤立地使用 {@code PropertySources} 对象，而是通过 {@link PropertySources} 对象来集成属性源，并结合使用 {@link PropertyResolver} 。实现跨越 {@code PropertySources} 集合的基于优先级搜索。
+ *
+ * {@code PropertySource} 标识不是基于封装属性的内容而是基于 {@code PropertySource} 的 {@link #getName() name}。这对于在集合上下文中操作 {@code PropertySource} 对象很有用。有关详细信息，请参阅 {@link MutablePropertySources} 中的操作以及 {@link #named(String)} 和 {@link #toString()} 方法。
+ *
+ * 请注意，使用 @{@link
+ * org.springframework.context.annotation.Configuration Configuration} 类时，@{@link org.springframework.context.annotation.PropertySource PropertySource} 注释提供了一种方便和声明性的方式向封闭的 {@code Environment} 添加属性源。
+ */
+public abstract class PropertySource<T> {
+	protected final String name;
+	protected final T source;
+}
+```
+##### 3.1.2 [EnumerablePropertySource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/EnumerablePropertySource.java)
+```java
+/**
+ * 可询问其底层源对象，来枚举所有可能的属性 name/value对 的{@link PropertySource}抽象类。暴露 {@link #getPropertyNames()} 方法，以允许调用者内省自己的可用属性，而不必访问底层的源对象。这也有助于更有效地实现 {@link #containsProperty(String)}，因为它可以调用 {@link #getPropertyNames()} 并遍历返回的数组，而不是尝试调用  {@link #getProperty(String)}，这可能更昂贵。实现可能会考虑缓存 {@link #getPropertyNames()} 的结果，以充分利用此性能机会。
+ *
+ * 大多数框架提供的{@code PropertySource}实现是可枚举的;一个反例是{@code JndiPropertySource}，由于JNDI的性质，在任何给定时间都不可能确定所有可能的属性名称;而只能尝试访问一个属性（通过{@link #getProperty（String）}）来评估它是否存在。
+ */
+public abstract class EnumerablePropertySource<T> extends PropertySource<T> {
+	public abstract String[] getPropertyNames();
+}
+```
 
+##### 3.1.3 [MapPropertySource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/MapPropertySource.java)
+```java
+/**
+ * {@link PropertySource}从{@code Map}对象读取 keys 和 values 。
+ */
+public class MapPropertySource extends EnumerablePropertySource<Map<String, Object>> {
+}
+```
+##### 3.1.4 [SystemEnvironmentPropertySource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/SystemEnvironmentPropertySource.java)
+```java
+/**
+ * 专为 {@linkplain AbstractEnvironment#getSystemEnvironment() system environment variables} 使用而设计的特殊{@link MapPropertySource} 。补偿Bash和其他shell中的约束，不允许包含句点字符和/或连字符的变量;同样允许shell更常用的使用的大写属性名称变体。
+ *
+ * 例如，调用 {@code getProperty("foo.bar")} 将尝试找到原始属性或任何“等效”属性的值，返回首次找到的值：
+ * {@code foo.bar} - 原始名称
+ * {@code foo_bar} - 句点转下划线（如果有）
+ * {@code FOO.BAR} - 原件，大写
+ * {@code FOO_BAR} - 带下划线和大写
+ * 上述任何连字符变体也可以工作，甚至混合点/连字符变体。
+ *
+ * 同样适用于 {@link #containsProperty(String)} 的调用，如果存在任何上述属性，则返回{@code true}，否则{@code false}。
+ *
+ * 将活动或默认配置文件指定为环境变量时，此功能特别有用。 Bash下是不允许的：
+ * spring.profiles.active=p1 java -classpath ... MyApp
+ *
+ * 但是，以下语法是允许的，也是更常规的：
+ * SPRING_PROFILES_ACTIVE=p1 java -classpath ... MyApp
+ *
+ * 为此类（或包）启用调试或跟踪级别日志记录，以解释何时发生这些“属性名称解析”。
+ *
+ * 此属性源默认包含在 {@link StandardEnvironment} 及其所有子类中。
+ */
+public class SystemEnvironmentPropertySource extends MapPropertySource {
+}
+```
+##### 3.1.5 [PropertiesPropertySource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/PropertiesPropertySource.java)
+```java
+/**
+ * {@link PropertySource} 实现，从 {@link java.util.Properties} 对象中提取属性。
+ * 请注意，由于 {@code Properties} 对象在技术上是 {@code <Object，Object>} {@link java.util.Hashtable Hashtable}，可能包含非{@code String}键或值。 然而，这种实现仅限于访问 {@code String} 的键和值，与{@link Properties＃getProperty}和{@link Properties＃setProperty}的方式相同。
+ */
+public class PropertiesPropertySource extends MapPropertySource {
+}
+```
+##### 3.1.6 [CommandLinePropertySource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/CommandLinePropertySource.java)
+```java
+/**
+ * 由命令行参数支持的{@link PropertySource}实现的抽象基类。 参数化类型{@code T}表示命令行选项的基础源。 在{@link SimpleCommandLinePropertySource}的情况下，这可能与String数组一样简单，或者在{@link JOptCommandLinePropertySource}的情况下特定于特定的API，例如JOpt的{@code OptionSet}。
+ * 
+ * 
+ * 目的和一般用法
+ * 用于独立的基于Spring的应用程序，即通过传统{@code main}方法从命令行接受参数的 {@code String[]} 引导的应用程序。 在许多情况下，直接在{@code main}方法中处理命令行参数可能就足够了，但在其他情况下，可能需要将参数作为值注入Spring bean。 这是后一种情况，{@code CommandLinePropertySource}变得有用。 通常将 {@code CommandLinePropertySource} 添加到Spring {@code ApplicationContext} 的 {@link Environment} 中，此时所有命令行参数可通过 {@link Environment#getProperty(String)} 方法获得。 例如：
+ *
+ * public static void main(String[] args) {
+ *     CommandLinePropertySource clps = ...;
+ *     AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+ *     ctx.getEnvironment().getPropertySources().addFirst(clps);
+ *     ctx.register(AppConfig.class);
+ *     ctx.refresh();
+ * }
+ *
+ * 通过上面的引导逻辑，{@code AppConfig} 类可以 {@code @Inject} Spring {@code Environment}并直接查询属性：
+ *
+ * @Configuration
+ * public class AppConfig {
+ *
+ *     @Inject Environment env;
+ *
+ *     @Bean
+ *     public void DataSource dataSource() {
+ *         MyVendorDataSource dataSource = new MyVendorDataSource();
+ *         dataSource.setHostname(env.getProperty("db.hostname", "localhost"));
+ *         dataSource.setUsername(env.getRequiredProperty("db.username"));
+ *         dataSource.setPassword(env.getRequiredProperty("db.password"));
+ *         // ...
+ *         return dataSource;
+ *     }
+ * }
+ *
+ *
+ * 由于 {@code CommandLinePropertySource} 已使用 {@code #addFirst} 方法添加到 {@code Environment} 的 {@link MutablePropertySources} 集合中，因此具有最高的搜索优先级，这意味着 “db.hostname” 或可能存在于其他属性源（如系统环境变量）的属性中，它将首先从命令行属性源中选择。 这是一个合理的方法，因为在命令行上指定的参数自然比指定为环境变量的参数更具体。
+ * 作为注入 {@code Environment} 的替代方法，Spring的 {@code @Value} 注释可以用于注入这些属性，因为已经注册了 {@link PropertySourcesPropertyResolver} bean，直接或通过使用 {@code <context：property-placeholder>} 元素。 例如：
+ * @Component
+ * public class MyComponent {
+ *
+ *     @Value("my.property:defaultVal")
+ *     private String myProperty;
+ *
+ *     public void getMyProperty() {
+ *         return this.myProperty;
+ *     }
+ *
+ *     // ...
+ * }
+ *
+ *
+ * 使用选项参数
+ * 单个命令行参数通过通常的 {@link PropertySource#getProperty(String)} 和 {@link PropertySource#containsProperty(String)} 方法表示为属性。 例如，给出以下命令行:
+ * --o1=v1 --o2
+ * 'o1' 和 'o2' 被视为“选项参数”，并且以下断言将评估为true：
+ *
+ * CommandLinePropertySource<?> ps = ...
+ * assert ps.containsProperty("o1") == true;
+ * assert ps.containsProperty("o2") == true;
+ * assert ps.containsProperty("o3") == false;
+ * assert ps.getProperty("o1").equals("v1");
+ * assert ps.getProperty("o2").equals("");
+ * assert ps.getProperty("o3") == null;
+ *
+ * 请注意，'o2'选项没有参数，但{@code getProperty（“o2”）}解析为空字符串 ({@code ""}) 而不是{@code null}，而{@code getProperty “o3”）}解析为{@code null}，因为没有指定。 此行为与所有{@code PropertySource}实现所遵循的一般约定一致。
+ *
+ * 另请注意，虽然在上述示例中使用 "--" 来表示一个选项参数，但是这种语法可能会在单独的命令行参数库中有所不同。 例如，基于JOpt或Commons CLI的实现可能允许单个破折号 ("-") “短”选项参数等。
+ *
+ *
+ * 使用非选项参数
+ *
+ * 这种抽象也支持非选项参数。 任何没有选项样式前缀（如 "-" 或 "--" ）提供的参数都被视为“非选项参数”，通过特殊的 {@linkplain
+ * #DEFAULT_NON_OPTION_ARGS_PROPERTY_NAME "nonOptionArgs"} 属性可以使用。 如果指定了多个非选项参数，则此属性的值将是包含所有参数的以逗号分隔的字符串。 这种方法确保来自 {@code
+ * CommandLinePropertySource} 的所有属性的简单且一致的返回类型（String），同时适用于与Spring {@link Environment} 及其内置 {@code ConversionService}。 请考虑以下示例：
+ *
+ * --o1=v1 --o2=v2 /path/to/file1 /path/to/file2
+ *
+ * 在本示例中，“o1”和“o2”将被视为“选项参数”，而两个文件系统路径将被视为“非选项参数”。 因此，以下断言将评估为真：
+ *
+ * CommandLinePropertySource<?> ps = ...
+ * assert ps.containsProperty("o1") == true;
+ * assert ps.containsProperty("o2") == true;
+ * assert ps.containsProperty("nonOptionArgs") == true;
+ * assert ps.getProperty("o1").equals("v1");
+ * assert ps.getProperty("o2").equals("v2");
+ * assert ps.getProperty("nonOptionArgs").equals("/path/to/file1,/path/to/file2");
+ *
+ * 如上所述，当与Spring {@code Environment}抽象结合使用时，逗号分隔的字符串可能很容易转换为String数组或列表：
+ *
+ * Environment env = applicationContext.getEnvironment();
+ * String[] nonOptionArgs = env.getProperty("nonOptionArgs", String[].class);
+ * assert nonOptionArgs[0].equals("/path/to/file1");
+ * assert nonOptionArgs[1].equals("/path/to/file2");
+ *
+ * 可以通过 {@link #setNonOptionArgsPropertyName(String)} 方法定制特殊“非选项参数”属性的名称。 建议这样做，因为它为非选项参数赋予正确的语义值。 例如，如果将文件系统路径指定为非选项参数，则可能将其称为“file.locations”类似于“nonOptionArgs”的默认值：
+ *
+ * public static void main(String[] args) {
+ *     CommandLinePropertySource clps = ...;
+ *     clps.setNonOptionArgsPropertyName("file.locations");
+ *
+ *     AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
+ *     ctx.getEnvironment().getPropertySources().addFirst(clps);
+ *     ctx.register(AppConfig.class);
+ *     ctx.refresh();
+ * }
+ *
+ *
+ * 限制
+ * 这种抽象不是为了暴露基础命令行解析API（如JOpt或Commons CLI）的全部功能。 它的意图恰恰相反：提供最简单的可能的抽象，以便在命令行参数解析之后访问。  解析主方法中的参数的{@code String []}，然后简单地将解析结果提供给{@code CommandLinePropertySource}的实现。 在这一点上，所有参数都可以被认为是“选项”或“非选项”参数，如上所述可以通过普通的{@code PropertySource}和{@code Environment} API来访问。
+ */
+public abstract class CommandLinePropertySource<T> extends EnumerablePropertySource<T> {
+	public static final String COMMAND_LINE_PROPERTY_SOURCE_NAME = "commandLineArgs";
+	public static final String DEFAULT_NON_OPTION_ARGS_PROPERTY_NAME = "nonOptionArgs";
+	private String nonOptionArgsPropertyName = DEFAULT_NON_OPTION_ARGS_PROPERTY_NAME;
+}
+```
+
+##### 3.1.7 [SimpleCommandLinePropertySource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/SimpleCommandLinePropertySource.java)
+```java
+/**
+ * {@link CommandLinePropertySource}实现，由一个简单的String数组支持
+ *
+ * 
+ * 目的
+ * 此{@code CommandLinePropertySource}实现旨在提供解析命令行参数的最简单的方法。 与所有 {@code CommandLinePropertySource} 实现一样，命令行参数分为两个不同的组： 选项参数 和 非选项参数 ，如下所述 从Javadoc为{@link SimpleCommandLineArgsParser}复制的部分） ：
+ *
+ *
+ * 使用选项参数
+ * 选项参数必须遵守确切的语法：
+ * --optName[=optValue]
+ * 也就是说，选项必须以"{@code --}"为前缀，并且可以指定或不指定值。 如果指定了一个值，则必须使用等号（“=”）分隔不带空格的名称和值。
+ * 选项参数的有效示例
+ * --foo
+ * --foo=bar
+ * --foo="bar then baz"
+ * --foo=bar,baz,biz
+ * 无效的选项参数示例
+ * -foo
+ * --foo bar
+ * --foo = bar
+ * --foo=bar --foo=baz --foo=biz
+ *
+ *
+ * 使用非选项参数
+ * 在没有 "{@code --}" 选项前缀的命令行中指定的任何和所有参数将被视为“非选项参数”，并通过 {@link #getNonOptionArgs()} 方法提供。
+ *
+ *
+ * 典型用法
+ * public static void main(String[] args) {
+ *     PropertySource<?> ps = new SimpleCommandLinePropertySource(args);
+ *     // ...
+ * }
+ * 有关完整的一般用法示例，请参阅{@link CommandLinePropertySource}。
+ *
+ *
+ * 基础以外
+ * 当需要更全面的命令行解析时，请考虑使用提供的{@link JOptCommandLinePropertySource}，或者根据您选择的命令行解析库实现您自己的{@code CommandLinePropertySource}
+ */
+public class SimpleCommandLinePropertySource extends CommandLinePropertySource<CommandLineArgs> {
+}
+```
+```java
+class CommandLineArgs {
+	private final Map<String, List<String>> optionArgs = new HashMap<>();
+	private final List<String> nonOptionArgs = new ArrayList<>();
+}
+```
+
+##### 3.1.8 [CompositePropertySource](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/CompositePropertySource.java)
+```java
+/**
+ * 复合 {@link PropertySource} 实现，迭代一组{@link PropertySource}实例。在多个资源共享同一个名称的情况下，是必要的。例如当 {@code @PropertySource} 提供多个值时。
+ *
+ * 从Spring 4.1.2开始，该类扩展了{@link EnumerablePropertySource}，而不是纯{@link PropertySource}，根据所有包含的源的累积属性名称展开 {@link #getPropertyNames()} （尽最大可能） ）。
+ */
+public class CompositePropertySource extends EnumerablePropertySource<Object> {
+	private final Set<PropertySource<?>> propertySources = new LinkedHashSet<>();
+}
+```
+
+### 3.2 PropertySource集合
+##### 3.2.1 [PropertySources](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/PropertySources.java)
+```java
+public interface PropertySources extends Iterable<PropertySource<?>> {
+	boolean contains(String name);
+	PropertySource<?> get(String name);
+}
+```
+##### 3.2.2 [MutablePropertySources](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/MutablePropertySources.java)
+```java
+/**
+ * {@link PropertySources}接口的默认实现。 允许处理包含的多属性源，并提供一个构造函数来复制现有的{@code PropertySources}实例。
+ * 在 {@link #addFirst} 和 {@link #addLast} 等方法中提及 优先级 的地方，这是关于在使用{@link PropertyResolver}解析给定属性时，搜索属性源的顺序。
+ */
+public class MutablePropertySources implements PropertySources {
+	private final List<PropertySource<?>> propertySourceList = new CopyOnWriteArrayList<>();
+}
+```
 
 ## 4. Environment
 ![](/assets/img/spring/springEnvPropertyResolver.png)
 
-###
+### 4.1 接口
