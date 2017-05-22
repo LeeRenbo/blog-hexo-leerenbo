@@ -597,3 +597,180 @@ public class MutablePropertySources implements PropertySources {
 ![](/assets/img/spring/springEnvPropertyResolver.png)
 
 ### 4.1 接口
+##### 4.1.1 [Environment](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/Environment.java)
+```java
+/**
+ * 表示当前应用程序正在运行的环境的接口。 模拟应用程序环境的两个关键方面：profiles 和 properties 。 与属性访问相关的方法通过 {@link PropertyResolver} 父接口暴露。
+ * 只有在给定的 profile 活动时，profile才是一个有名字的、注册在容器上的bean定义逻辑组。 bean可以被分配到不管是以XML定义还是以注释的profile; 有关语法详细信息，请参阅spring-beans 3.1 schema 或 {@link org.springframework.context.annotation.Profile @Profile}注释。 {@code Environment}对象与 profiles 的关系在于确定当前中哪些配置文件（如果有的话）{@linkplain #getActiveProfiles active} 活动 ，哪些配置文件（如果有的话）应该是{@linkplain #getDefaultProfiles 在默认情况下处于活动状态}。
+ * Properties 在几乎所有的应用程序中起着重要的作用，可能来自各种来源：属性文件，JVM系统属性，系统环境变量，JNDI，servlet上下文参数，ad-hoc 属性对象，地图等。 环境对象与属性关系的作用是为用户提供方便的服务接口，用于配置属性源并从中解析属性。
+ * 在{@code ApplicationContext}中管理的Bean可以注册为 {@link org.springframework.context.EnvironmentAware EnvironmentAware} 或 {@code @Inject} {@code Environment}，以便直接查询配置文件状态或解析属性。
+ * 然而，在大多数情况下，应用级别的bean不需要直接与{@code Environment}进行交互，而是可能必须将 {@code ${...}} 属性值替换为属性占位符配置。例如，{@link org.springframework.context.support.PropertySourcesPlaceholderConfigurer PropertySourcesPlaceholderConfigurer}）本身就是{@code EnvironmentAware}，并且在Spring 3.1之前，使用 {@code getEnvironment()} 时，默认被注册。
+ * 环境对象的配置必须通过从 {@code AbstractApplicationContext} 子类 {@code getEnvironment()} 方法返回的{@code ConfigurableEnvironment}接口完成。有关使用示例的示例，请参阅{@link ConfigurableEnvironment} Javadoc，演示在应用程序上下文{@code refresh()}之前操纵属性源。
+ */
+public interface Environment extends PropertyResolver {
+
+	/**
+	 * 返回显示为此环境激活的配置文件集。 配置文件用于创建有条件注册的bean定义的逻辑分组，例如基于部署环境。 可以通过将{@linkplain AbstractEnvironment#ACTIVE_PROFILES_PROPERTY_NAME "spring.profiles.active"} 设置为系统属性或调用 {@link ConfigurableEnvironment#setActiveProfiles(String...)} 来激活配置文件。
+	 * 如果没有将配置文件明确指定为活动的，那么任何{@linkplain #getDefaultProfiles() 默认配置文件}将自动被激活。
+	 */
+	String[] getActiveProfiles();
+
+	/**
+	 * 当没有显式设置活动的配置文件时，默认情况下返回一组配置文件。
+	 */
+	String[] getDefaultProfiles();
+
+	/**
+	 * 返回一个或多个给定的配置文件是否处于活动状态，或者在没有显式活动配置文件的情况下，是否将一个或多个给定配置文件包含在默认配置文件集中。
+	 * 如果配置文件以 '!' 开头 逻辑被反转，即如果给定的配置文件不是 活动，该方法将返回true。
+	 * 例如，如果配置文件“p1”处于活动状态或“p2”不活动，则
+	 * env.acceptsProfiles("p1", "!p2")
+	 * 将返回{@code true}
+	 */
+	boolean acceptsProfiles(String... profiles);
+
+}
+
+```
+##### 5.1.2 [ConfigurableEnvironment](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/ConfigurableEnvironment.java)
+```java
+/**
+ * 配置接口由大多数（如果不是全部）{@link Environment}类型实现。
+ * 提供设置活动和默认配置文件以及操纵底层属性源的功能。
+ * 允许客户端通过{@link ConfigurablePropertyResolver}父接口，来设置和验证所需的属性，自定义转换服务等等。
+ *
+ * 操纵属性来源
+ * 属性来源可被删除，重新排序或替换; 并且可以使用从 {@link #getPropertySources()} 返回的 {@link MutablePropertySources} 实例添加其他属性源。
+ * 以下示例针对{@code ConfigurableEnvironment}的实现{@link StandardEnvironment}，但通常适用于任何实现，尽管特定的默认属性来源可能不同。
+ *
+ * 示例：添加具有最高搜索优先级的新属性源
+ * ConfigurableEnvironment environment = new StandardEnvironment();
+ * MutablePropertySources propertySources = environment.getPropertySources();
+ * Map<String, String> myMap = new HashMap<String, String>();
+ * myMap.put("xyz", "myValue");
+ * propertySources.addFirst(new MapPropertySource("MY_MAP", myMap));
+ *
+ * 示例：删除默认的系统属性属性源
+ * MutablePropertySources propertySources = environment.getPropertySources();
+ * propertySources.remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME)
+ *
+ * 示例：mock系统环境进行测试
+ * MutablePropertySources propertySources = environment.getPropertySources();
+ * MockPropertySource mockEnvVars = new MockPropertySource().withProperty("xyz", "myValue");
+ * propertySources.replace(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME, mockEnvVars);
+ *
+ * 当{@code ApplicationContext}正在使用{@link Environment}时，在上下文的{@link
+ * org.springframework.context.support.AbstractApplicationContext#refresh() refresh()}方法被调用之前执行任何这样的{@code PropertySource}操作非常重要。
+ * 这确保了所有属性源在容器引导过程中可用，包括被{@linkplain org.springframework.context.support.PropertySourcesPlaceholderConfigurer property placeholder configurers}使用。
+ */
+public interface ConfigurableEnvironment extends Environment, ConfigurablePropertyResolver {
+
+	/**
+	 * 为 {@code Environment} 指定一组活动的配置文件。在容器引导期间评估配置文件，以确定bean定义是否应该向容器注册。
+	 * 任何现有的活动配置文件将被替换为给定的参数; 零参数调用来清除活动配置文件的当前集合。
+	 * 使用{@link #addActiveProfile}添加配置文件同时保留现有集。
+	 */
+	void setActiveProfiles(String... profiles);
+
+	/**
+	 * 将配置文件添加到当前活动配置文件集中。
+	 */
+	void addActiveProfile(String profile);
+
+	/**
+	 * 如果没有其他配置文件通过{@link #setActiveProfiles}显式生效，则默认指定要设置为活动的配置文件集。
+	 */
+	void setDefaultProfiles(String... profiles);
+
+	MutablePropertySources getPropertySources();
+
+	/**
+	 * 如果当前{@link SecurityManager}允许，返回 {@link System#getenv()} 的值，否则返回一个map实现，它将尝试通过调用 {@link System#getenv(String)} 访问各个键。
+	 * 请注意，大多数{@link Environment}实现将将此系统环境映射作为默认{@link PropertySource}进行搜索。 因此，建议不要直接使用此方法，除非明确地意图绕过其他属性来源。
+	 * 在返回的Map上调用 {@link Map#get(Object)} 将永远不会抛出{@link IllegalAccessException}; 在SecurityManager禁止访问属性的情况下，将返回{@code null}，并将发出INFO级日志消息，注明异常。
+	 */
+	Map<String, Object> getSystemEnvironment();
+
+	/**
+	 * 如果当前的 {@link SecurityManager} 允许，返回 {@link System#getProperties()} 的值，否则返回一个映射实现，它将尝试使用对 {@link System#getProperty(String)} 的调用访问各个键。
+	 * 请注意，大多数{@code Environment}实现将将此系统属性映射作为默认{@link PropertySource}进行搜索。 因此，建议不要直接使用此方法，除非明确地意图绕过其他属性来源。
+	 * 在返回的Map上调用 {@link Map#get(Object)} 将永远不会抛出{@link IllegalAccessException}; 在SecurityManager禁止访问属性的情况下，将返回{@code null}，并将发出INFO级日志消息，注明异常。
+	 */
+	Map<String, Object> getSystemProperties();
+
+	/**
+	 * 追加给定的父环境的活动配置文件，默认配置文件和属性源附加到此（子）环境各自的集合中。
+	 * 对于存在于父项和子节点的任何同名命名的{@code PropertySource}实例，子实例将被保留并且父实例被丢弃。 这具有允许子级覆盖属性源的作用，并且避免通过公共属性源类型的冗余搜索，
+	 * 例如 系统环境和系统属性。
+	 * 活动和默认配置文件名称也被重复过滤，以避免混淆和冗余存储。
+	 * 在任何情况下，父环境都未修改。 请注意，调用{@code merge}之后发生的父环境的任何更改都不会反映在该子环境中。 因此，在调用{@code merge}之前，应该小心配置父属性源和配置文件信息。
+	 */
+	void merge(ConfigurableEnvironment parent);
+
+}
+```
+
+### 5.2 抽象与实现
+##### 5.2.1 [AbstractEnvironment](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/AbstractEnvironment.java)
+```java
+/**
+ * {@link Environment} 实现的抽象基类。 支持保留默认配置文件名称的概念，并通过 {@link #ACTIVE_PROFILES_PROPERTY_NAME} 和 {@link #DEFAULT_PROFILES_PROPERTY_NAME} 属性开启指定活动和默认配置文件。
+ *
+ * 具体的子类区别主要在于默认添加的 {@link PropertySource} 对象。 {@code AbstractEnvironment} 没有添加。 子类应通过受保护的{@link #customizePropertySources（MutablePropertySources）}钩子来提供属性源，而客户端应使用{@link ConfigurableEnvironment#getPropertySources()}进行自定义，并使用{@link MutablePropertySources} API。 有关使用示例，请参阅{@link ConfigurableEnvironment} javadoc。
+ */
+public abstract class AbstractEnvironment implements ConfigurableEnvironment {
+
+	/**
+	 * 系统属性指示Spring忽略系统环境变量，即永远不 会通过{@link System#getenv()}检索这样一个变量。
+	 * 默认值为“false”，返回到系统环境变量，检查Spring环境属性（例如，配置字符串中的占位符）是否不可解析。 如果您遇到来自Spring的{@code getenv}呼叫的日志警告，请考虑将此标志切换为“true”，例如。 在WebSphere上使用严格的SecurityManager设置和AccessControlExceptions警告。...
+	 */
+	public static final String IGNORE_GETENV_PROPERTY_NAME = "spring.getenv.ignore";
+
+	/**
+	 * 要设置为指定活动配置文件的属性名称：{@value}。 值可以以逗号分隔。
+	 * 请注意，某些shell环境（如Bash）不允许在变量名称中使用句点字符。 假设Spring的{@link SystemEnvironmentPropertySource}正在使用中，此属性可能被指定为环境变量{@code SPRING_PROFILES_ACTIVE}。
+	 */
+	public static final String ACTIVE_PROFILES_PROPERTY_NAME = "spring.profiles.active";
+
+	/**
+	 * 要设置的属性名称，以指定默认情况下活动的配置文件：{@value}。 值可以以逗号分隔。
+	 * 请注意，某些shell环境（如Bash）不允许在变量名称中使用句点字符。 假设Spring的{@link SystemEnvironmentPropertySource}正在使用，该属性可能被指定为环境变量{@code SPRING_PROFILES_DEFAULT}。
+	 */
+	public static final String DEFAULT_PROFILES_PROPERTY_NAME = "spring.profiles.default";
+
+	/**
+	 * 保留的默认配置文件名称名称：{@value}。 如果没有明确的默认配置文件名称，并且没有显式设置活动配置文件名称，默认情况下将自动激活此配置文件。
+	 */
+	protected static final String RESERVED_DEFAULT_PROFILE_NAME = "default";
+
+	private final Set<String> activeProfiles = new LinkedHashSet<>();
+
+	private final Set<String> defaultProfiles = new LinkedHashSet<>(getReservedDefaultProfiles());
+
+	private final MutablePropertySources propertySources = new MutablePropertySources(this.logger);
+
+	private final ConfigurablePropertyResolver propertyResolver =
+			new PropertySourcesPropertyResolver(this.propertySources);
+
+}
+```
+
+##### 5.2.2 [StandardEnvironment](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/env/StandardEnvironment.java)
+```java
+/**
+ * {@link Environment} 实现适用于“标准”（即非Web）应用程序。
+ * 除了属性解析和配置文件相关操作之类的{@link ConfigurableEnvironment}的常规功能外，此实现还将配置两个默认属性源，以下列顺序进行搜索：
+ * {@linkplain AbstractEnvironment#getSystemProperties() system properties}
+ * {@linkplain AbstractEnvironment#getSystemEnvironment() system environment variables}
+
+ * 也就是说，如果JVM系统属性和当前进程的一组环境变量中都存在密钥“xyz”，系统属性中的“xyz”键值将从一个调用返回到 {@code environment.getProperty("xyz")}。 默认情况下选择此排序，因为系统属性是每个JVM，而给定系统上的许多JVM的环境变量可能相同。 给予系统属性优先级允许在每个JVM的基础上覆盖环境变量。
+ * 这些默认属性源可能会被删除，重新排序或替换; 并且可以使用 {@link #getPropertySources()} 中提供的 {@link MutablePropertySources} 实例添加其他属性来源。 有关使用示例，请参阅{@link ConfigurableEnvironment} Javadoc。
+ *
+ * 请参阅{@link SystemEnvironmentPropertySource} javadoc，了解在shell环境（例如Bash）中特殊处理属性名称的详细信息，该属性名称不允许变量名称中的句点字符。
+ */
+public class StandardEnvironment extends AbstractEnvironment {
+	public static final String SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME = "systemEnvironment";
+	public static final String SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME = "systemProperties";
+}
+
+```
