@@ -242,6 +242,24 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement {
 	BeanDefinition getOriginatingBeanDefinition();
 }
 ```
+##### 2.2.4 [AnnotatedBeanDefinition](https://github.com/LeeRenbo/spring-framework/blob/master/spring-beans/src/main/java/org/springframework/beans/factory/annotation/AnnotatedBeanDefinition.java)
+```java
+/**
+ * 扩展{@link org.springframework.beans.factory.config.BeanDefinition}接口，暴露关于其bean类的{@link org.springframework.core.type.AnnotationMetadata}，而可以不需要加载该类。
+ */
+public interface AnnotatedBeanDefinition extends BeanDefinition {
+
+	/**
+	 * 为此bean定义的bean类获取注释元数据（以及基本类元数据）。
+	 */
+	AnnotationMetadata getMetadata();
+
+	/**
+	 * 获取此bean定义的工厂方法的元数据（如果有）。
+	 */
+	MethodMetadata getFactoryMethodMetadata();
+}
+```
 
 ### 2.3 实现
 ##### 2.3.1 [AttributeAccessorSupport](https://github.com/LeeRenbo/spring-framework/blob/master/spring-core/src/main/java/org/springframework/core/AttributeAccessorSupport.java)
@@ -493,6 +511,236 @@ public class MutablePropertyValues implements PropertyValues, Serializable {
 	private final List<PropertyValue> propertyValueList;
 	private Set<String> processedProperties;
 	private volatile boolean converted = false;
+}
+```
+```java
+/**
+ * 包含一个或多个{@link PropertyValue}对象的Holder，通常包含特定目标bean的一个更新。
+ */
+public interface PropertyValues {
+
+	PropertyValue[] getPropertyValues();
+	PropertyValue getPropertyValue(String propertyName);
+	/**
+	 * 返回自上一个PropertyValues之后的更改。 子类也应该覆盖{@code equals}。
+	 */
+	PropertyValues changesSince(PropertyValues old);
+	boolean contains(String propertyName);
+	boolean isEmpty();
+}
+```
+
+```java
+/**
+ * 对象保存单个bean属性的信息和值。 在这里使用一个对象，而不仅仅是将所有属性存储在按属性名称键入的 map 中，这样可以更有弹性，并以优化的方式处理索引属性等。
+ * 请注意，该值不需要是最终必需的类型：{@link BeanWrapper}实现应该处理任何必要的转换，因为该对象不知道将要应用的对象的任何内容。
+ */
+@SuppressWarnings("serial")
+public class PropertyValue extends BeanMetadataAttributeAccessor implements Serializable {
+	private final String name;
+	private final Object value;
+	private boolean optional = false;
+	private boolean converted = false;
+	private Object convertedValue;
+	/** Package-visible field that indicates whether conversion is necessary */
+	volatile Boolean conversionNecessary;
+	/** Package-visible field for caching the resolved property path tokens */
+	transient volatile Object resolvedTokens;
+}
+```
+```java
+/**
+ * {@code BeanDefinition}属性的简单持有人默认。
+ */
+public class BeanDefinitionDefaults {
+	private boolean lazyInit;
+	private int dependencyCheck = AbstractBeanDefinition.DEPENDENCY_CHECK_NONE;
+	private int autowireMode = AbstractBeanDefinition.AUTOWIRE_NO;
+	private String initMethodName;
+	private String destroyMethodName;
+}
+```
+
+##### 2.3.4 [RootBeanDefinition](https://github.com/LeeRenbo/spring-framework/blob/master/spring-beans/src/main/java/org/springframework/beans/factory/support/RootBeanDefinition.java)
+```java
+/**
+ * 根bean定义代表在运行时在Spring BeanFactory中备份特定bean的合并的bean定义。
+ * 它可能已经从多个相互继承原始bean定义创建，通常以{@link GenericBeanDefinition GenericBeanDefinitions}的形式进行创建。
+ * 根bean定义本质上是运行时的“统一”bean定义视图。
+ *
+ * 根bean定义也可用于在配置阶段注册各个bean定义。
+ * 但是，从Spring 2.5，以编程方式注册bean定义的首选方式是{@link GenericBeanDefinition}类。
+ * GenericBeanDefinition 的优点是允许动态定义父依赖关系，而不是将角色“硬编码”为根bean定义。
+ *
+ * @author Rod Johnson
+ * @author Juergen Hoeller
+ * @see GenericBeanDefinition
+ * @see ChildBeanDefinition
+ */
+@SuppressWarnings("serial")
+public class RootBeanDefinition extends AbstractBeanDefinition {
+
+	private BeanDefinitionHolder decoratedDefinition;
+
+	/**
+	 * 指定{@link AnnotatedElement}定义限定符，而不是目标类或工厂方法。
+	 */
+	private AnnotatedElement qualifiedElement;
+
+	boolean allowCaching = true;
+
+	boolean isFactoryMethodUnique = false;
+
+	/**
+	 * 如果事先知道，请指定此bean定义的含有泛型的目标类型。
+	 */
+	volatile ResolvableType targetType;
+
+	/** Package-visible field for caching the determined Class of a given bean definition
+	 * 缓存给定bean定义的确定类
+	 * */
+	volatile Class<?> resolvedTargetType;
+
+	/** Package-visible field for caching the return type of a generically typed factory method
+	 * 缓存返回类型的一般类型的工厂方法
+	 * */
+	volatile ResolvableType factoryMethodReturnType;
+
+	/** Common lock for the four constructor fields below
+	 * 以下四个构造函数字段的通用锁
+	 * */
+	final Object constructorArgumentLock = new Object();
+
+	/** Package-visible field for caching the resolved constructor or factory method
+	 * 缓存已解决的构造函数或工厂方法
+	 * */
+	Executable resolvedConstructorOrFactoryMethod;
+
+	/** Package-visible field that marks the constructor arguments as resolved
+	 * 将构造函数的参数标记为已解决
+	 * */
+	boolean constructorArgumentsResolved = false;
+
+	/** Package-visible field for caching fully resolved constructor arguments
+	 * 缓存完全解析的构造函数参数
+	 * */
+	Object[] resolvedConstructorArguments;
+
+	/** Package-visible field for caching partly prepared constructor arguments
+	 * 缓存部分准备的构造函数参数
+	 * */
+	Object[] preparedConstructorArguments;
+
+	/** Common lock for the two post-processing fields below
+	 * 以下两个后处理字段的通用锁
+	 * */
+	final Object postProcessingLock = new Object();
+
+	/** Package-visible field that indicates MergedBeanDefinitionPostProcessor having been applied
+	 * 表示已应用MergedBeanDefinitionPostProcessor
+	 * */
+	boolean postProcessed = false;
+
+	/** Package-visible field that indicates a before-instantiation post-processor having kicked in
+	 * 表示已经一个实例化后处理器已经触发
+	 * */
+	volatile Boolean beforeInstantiationResolved;
+
+	private Set<Member> externallyManagedConfigMembers;
+
+	private Set<String> externallyManagedInitMethods;
+
+	private Set<String> externallyManagedDestroyMethods;
+}
+```
+
+##### 2.3.5 [RootBeanDefinition](https://github.com/LeeRenbo/spring-framework/blob/master/spring-beans/src/main/java/org/springframework/beans/factory/support/RootBeanDefinition.java)
+```java
+/**
+ * 根bean定义代表融合的bean定义，运行时在Spring BeanFactory中备份特定bean的。
+ * 它可能已经从多个相互继承原始bean定义创建，通常以{@link GenericBeanDefinition GenericBeanDefinitions}的形式进行创建。
+ * 根bean定义本质上是运行时的“统一”bean定义视图。
+ *
+ * 根bean定义也可用于在配置阶段注册各个bean定义。
+ * 但是，从Spring 2.5，以编程方式注册bean定义的首选方式是{@link GenericBeanDefinition}类。
+ * GenericBeanDefinition 的优点是允许动态定义父依赖关系，而不是将角色“硬编码”为根bean定义。
+ */
+@SuppressWarnings("serial")
+public class RootBeanDefinition extends AbstractBeanDefinition {
+
+	private BeanDefinitionHolder decoratedDefinition;
+
+	/**
+	 * 指定{@link AnnotatedElement}定义限定符，而不是目标类或工厂方法。
+	 */
+	private AnnotatedElement qualifiedElement;
+
+	boolean allowCaching = true;
+
+	boolean isFactoryMethodUnique = false;
+
+	/**
+	 * 如果事先知道，请指定此bean定义的含有泛型的目标类型。
+	 */
+	volatile ResolvableType targetType;
+
+	/**
+	 * 缓存给定bean定义的确定类
+	 */
+	volatile Class<?> resolvedTargetType;
+
+	/**
+	 * 缓存返回类型的一般类型的工厂方法
+	 */
+	volatile ResolvableType factoryMethodReturnType;
+
+	/**
+	 * 以下四个构造函数字段的通用锁
+	 */
+	final Object constructorArgumentLock = new Object();
+
+	/**
+	 * 缓存已解析的构造函数或工厂方法
+	 */
+	Executable resolvedConstructorOrFactoryMethod;
+
+	/**
+	 * 将构造函数的参数标记为已解决
+	 */
+	boolean constructorArgumentsResolved = false;
+
+	/**
+	 * 缓存完全解析的构造函数参数
+	 */
+	Object[] resolvedConstructorArguments;
+
+	/**
+	 * 缓存部分准备的构造函数参数
+	 */
+	Object[] preparedConstructorArguments;
+
+	/**
+	 * 以下两个后处理字段的通用锁
+	 */
+	final Object postProcessingLock = new Object();
+
+	/**
+	 * 表示已应用MergedBeanDefinitionPostProcessor
+	 */
+	boolean postProcessed = false;
+
+	/**
+	 * Package-visible field that indicates a before-instantiation post-processor having kicked in
+	 * 表示已经一个实例化后处理器已经触发
+	 */
+	volatile Boolean beforeInstantiationResolved;
+
+	private Set<Member> externallyManagedConfigMembers;
+
+	private Set<String> externallyManagedInitMethods;
+
+	private Set<String> externallyManagedDestroyMethods;
+
 }
 ```
 
