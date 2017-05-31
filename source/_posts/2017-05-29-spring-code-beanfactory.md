@@ -744,3 +744,426 @@ public class RootBeanDefinition extends AbstractBeanDefinition {
 }
 ```
 
+##### 2.3.6 [GenericBeanDefinition](https://github.com/LeeRenbo/spring-framework/blob/master/spring-beans/src/main/java/org/springframework/beans/factory/support/GenericBeanDefinition.java)
+```java
+/**
+ * GenericBeanDefinition is a one-stop shop for standard bean definition purposes.
+ * Like any bean definition, it allows for specifying a class plus optionally
+ * constructor argument values and property values. Additionally, deriving from a
+ * parent bean definition can be flexibly configured through the "parentName" property.
+ *
+ * <p>In general, use this {@code GenericBeanDefinition} class for the purpose of
+ * registering user-visible bean definitions (which a post-processor might operate on,
+ * potentially even reconfiguring the parent name). Use {@code RootBeanDefinition} /
+ * {@code ChildBeanDefinition} where parent/child relationships happen to be pre-determined.
+ *
+ * GenericBeanDefinition是标准bean定义的一站式服务。
+ * 像任何bean定义一样，它允许指定一个类加上可选的构造函数参数值和属性值。
+ * 另外，可以通过“parentName”属性灵活地配置从父bean定义的派生。
+ *
+ * 一般来说，使用这个{@code GenericBeanDefinition}类用于注册用户可见bean定义（后处理器可能操作bean定义，甚至可能重新配置父名称）。
+ * 使用{@code RootBeanDefinition} / {@code ChildBeanDefinition}，其中父/子关系恰好是预先确定的。
+ *
+ * @author Juergen Hoeller
+ * @since 2.5
+ * @see #setParentName
+ * @see RootBeanDefinition
+ * @see ChildBeanDefinition
+ */
+@SuppressWarnings("serial")
+public class GenericBeanDefinition extends AbstractBeanDefinition {
+
+	private String parentName;
+
+}
+```
+
+##### 2.3.7 [ChildBeanDefinition](https://github.com/LeeRenbo/spring-framework/blob/master/spring-beans/src/main/java/org/springframework/beans/factory/support/ChildBeanDefinition.java)
+```java
+/**
+ * 继承自父项设置的Bean的Bean定义。 子bean定义与父bean定义有固定的依赖关系。
+ *
+ * 子bean定义将从父级继承构造函数参数值，属性值和方法覆盖，并添加新值。
+ * 如果指定了init方法，destroy方法和/或静态工厂方法，它们将覆盖相应的父设置。
+ * 剩余的设置将始终从子定义中取出：depends on, autowire mode, dependency check, singleton, lazy init。
+ *
+ * 注意： 由于Spring 2.5，以编程方式注册bean定义的首选方式是{@link GenericBeanDefinition}类，它允许通过{@link GenericBeanDefinition＃setParentName}动态定义父依赖关系， 方法。
+ * 这有效地取代了大多数用例中的ChildBeanDefinition类。
+ */
+public class ChildBeanDefinition extends AbstractBeanDefinition {
+	private String parentName;
+
+}
+```
+
+##### 2.3.8 [ScannedGenericBeanDefinition](https://github.com/LeeRenbo/spring-framework/blob/master/spring-context/src/main/java/org/springframework/context/annotation/ScannedGenericBeanDefinition.java)
+```java
+/**
+ * 扩展{@link org.springframework.beans.factory.support.GenericBeanDefinition}类，基于ASM ClassReader，支持通过{@link AnnotatedBeanDefinition}接口暴露注释元数据。
+ * 此类不提早加载bean {@code Class}。 它相当于从“.class”文件本身检索所有相关的元数据，并与ASM ClassReader解析。 它在功能上等同于{@link AnnotatedGenericBeanDefinition#AnnotatedGenericBeanDefinition(AnnotationMetadata)}，但是区分已被扫描的类型bean与以其他方式注册或检测到的那些类型。
+ */
+public class ScannedGenericBeanDefinition extends GenericBeanDefinition implements AnnotatedBeanDefinition {
+	private final AnnotationMetadata metadata;
+}
+```
+
+##### 2.3.9 [AnnotatedGenericBeanDefinition](https://github.com/LeeRenbo/spring-framework/blob/master/spring-beans/src/main/java/org/springframework/beans/factory/annotation/AnnotatedGenericBeanDefinition.java)
+```java
+/**
+ * 扩展{@link org.springframework.beans.factory.support.GenericBeanDefinition}类，添加了通过{@link AnnotatedBeanDefinition}接口暴露注释元数据的支持。
+ * 
+ * 此GenericBeanDefinition变体主要用于测试期望在AnnotatedBeanDefinition上操作的代码，例如Spring组件扫描支持中的策略实现（默认定义类为{@link org.springframework.context.annotation.ScannedGenericBeanDefinition} ，它还实现了AnnotatedBeanDefinition接口）。
+ */
+@SuppressWarnings("serial")
+public class AnnotatedGenericBeanDefinition extends GenericBeanDefinition implements AnnotatedBeanDefinition {
+
+	private final AnnotationMetadata metadata;
+
+	private MethodMetadata factoryMethodMetadata;
+}
+```
+
+## 3.BeanDefinitionReader
+### 3.1 类图
+### 3.2 接口
+##### 3.2.1 [BeanDefinitionReader](https://github.com/LeeRenbo/spring-framework/blob/master/spring-beans/src/main/java/org/springframework/beans/factory/support/BeanDefinitionReader.java)
+```java
+/**
+ * 用于bean定义阅读器的简单接口。
+ * 指定具有 Resource 和 String 位置参数的加载方法。
+ *
+ * 具体的bean定义读取器当然可以为bean定义添加额外的加载和注册方法，特定于它们的bean定义格式。
+  *
+   请注意，bean定义阅读器不必实现此接口。 它仅作为要遵循标准命名约定的bean定义阅读器的建议。
+ */
+public interface BeanDefinitionReader {
+
+	/**
+     * 返回bean工厂注册bean定义。
+     * 工厂通过BeanDefinitionRegistry接口暴露，封装了与bean定义处理相关的方法。
+	 */
+	BeanDefinitionRegistry getRegistry();
+
+	ResourceLoader getResourceLoader();
+
+	/**
+     * 返回类加载器以用于bean类。
+     * {@code null}建议不要热切地加载bean类，而是仅仅使用类名注册bean定义，相应的类将在稍后（或从不）解析。
+	 */
+	ClassLoader getBeanClassLoader();
+
+	/**
+     * 返回BeanNameGenerator用于匿名bean（未指定明确的bean名称）。
+	 */
+	BeanNameGenerator getBeanNameGenerator();
+
+
+	/**
+     * 从指定的资源中加载bean定义。
+	 */
+	int loadBeanDefinitions(Resource resource) throws BeanDefinitionStoreException;
+	int loadBeanDefinitions(Resource... resources) throws BeanDefinitionStoreException;
+
+	/**
+     * 从指定的资源位置加载bean定义。
+     * 该位置也可以是一个位置模式，前提是该bean定义阅读器的ResourceLoader是ResourcePatternResolver。
+	 */
+	int loadBeanDefinitions(String location) throws BeanDefinitionStoreException;
+	int loadBeanDefinitions(String... locations) throws BeanDefinitionStoreException;
+
+}
+
+```
+
+##### 3.2.2 [AbstractBeanDefinitionReader](https://github.com/LeeRenbo/spring-framework/blob/master/spring-beans/src/main/java/org/springframework/beans/factory/support/AbstractBeanDefinitionReader.java)
+```java
+/**
+ * 实现{@link BeanDefinitionReader}接口的bean定义阅读器的抽象基类。
+ * 提供常见的属性，如bean工厂工作，类加载器用于加载bean类。
+ */
+public abstract class AbstractBeanDefinitionReader implements EnvironmentCapable, BeanDefinitionReader {
+
+	/** Logger available to subclasses */
+	protected final Log logger = LogFactory.getLog(getClass());
+
+	private final BeanDefinitionRegistry registry;
+
+	private ResourceLoader resourceLoader;
+
+	private ClassLoader beanClassLoader;
+
+	private Environment environment;
+
+	private BeanNameGenerator beanNameGenerator = new DefaultBeanNameGenerator();
+}
+```
+
+```java
+/**
+ * 用于保存bean定义的注册表的接口，例如RootBeanDefinition和ChildBeanDefinition实例。 通常由BeanFactories实现，内部使用AbstractBeanDefinition层次结构。
+ * 这是Spring的bean工厂包中唯一封装Bean定义注册的接口。 标准BeanFactory接口仅涵盖对完全配置的工厂实例的访问。
+ * Spring的bean定义阅读器期望在此接口的实现上工作。 Spring内核中的已知实现者是DefaultListableBeanFactory和GenericApplicationContext。
+ */
+public interface BeanDefinitionRegistry extends AliasRegistry {
+	/**
+	 * 使用此注册表注册新的bean定义。
+	 * 必须支持RootBeanDefinition和ChildBeanDefinition。
+	 */
+	void registerBeanDefinition(String beanName, BeanDefinition beanDefinition) throws BeanDefinitionStoreException;
+	
+	void removeBeanDefinition(String beanName) throws NoSuchBeanDefinitionException;
+	BeanDefinition getBeanDefinition(String beanName) throws NoSuchBeanDefinitionException;
+	boolean containsBeanDefinition(String beanName);
+	String[] getBeanDefinitionNames();
+	int getBeanDefinitionCount();
+	boolean isBeanNameInUse(String beanName);
+}
+
+```
+##### 3.2.3 [BeanDefinitionDocumentReader](https://github.com/LeeRenbo/spring-framework/blob/master/spring-beans/src/main/java/org/springframework/beans/factory/xml/BeanDefinitionDocumentReader.java)
+```java
+/**
+ * SPI用于解析包含Spring bean定义的XML文档。 由{@link XmlBeanDefinitionReader}用于实际解析DOM文档。
+ *
+ * 为每个文档实例化来解析：在执行{@code registerBeanDefinitions}方法时，实现可以在实例变量中保留状态; 例如，为文档中的所有bean定义定义的全局设置。
+ */
+public interface BeanDefinitionDocumentReader {
+
+	/**
+	 * 从给定的DOM文档中读取bean定义，并在给定的阅读器上下文中注册它们。
+	 */
+	void registerBeanDefinitions(Document doc, XmlReaderContext readerContext)
+			throws BeanDefinitionStoreException;
+
+}
+
+```
+### 3.3 实现
+##### 3.3.1 [XmlBeanDefinitionReader](https://github.com/LeeRenbo/spring-framework/blob/master/spring-beans/src/main/java/org/springframework/beans/factory/xml/XmlBeanDefinitionReader.java)
+```java
+/**
+ * 用于XML bean定义的Bean定义阅读器。
+ * 将实际的XML文档读取委托给{@link BeanDefinitionDocumentReader}接口的实现。
+ *
+ * 通常应用于{@link org.springframework.beans.factory.support.DefaultListableBeanFactory}或{@link org.springframework.context.support.GenericApplicationContext}。
+ *
+ * 此类加载DOM文档并将BeanDefinitionDocumentReader应用于该文档。 文档读取器将向给定的bean工厂注册每个bean定义，并与后者的{@link org.springframework.beans.factory.support.BeanDefinitionRegistry}接口的实现进行交互。
+ */
+public class XmlBeanDefinitionReader extends AbstractBeanDefinitionReader {
+
+	public static final int VALIDATION_NONE = XmlValidationModeDetector.VALIDATION_NONE;
+	public static final int VALIDATION_AUTO = XmlValidationModeDetector.VALIDATION_AUTO;
+	public static final int VALIDATION_DTD = XmlValidationModeDetector.VALIDATION_DTD;
+	public static final int VALIDATION_XSD = XmlValidationModeDetector.VALIDATION_XSD;
+
+	/**
+	 * Constants instance for this class
+	 * 此类可用于解析其他类包含定义的 public static final 成员常量
+	 */
+	private static final Constants constants = new Constants(XmlBeanDefinitionReader.class);
+
+	private int validationMode = VALIDATION_AUTO;
+
+	private boolean namespaceAware = false;
+
+	/**
+	 * 负责实际阅读XML bean定义文档的类。
+	 * 为每个文档实例化来解析
+	 */
+	private Class<?> documentReaderClass = DefaultBeanDefinitionDocumentReader.class;
+
+	/**
+	 * 默认实现是{@link org.springframework.beans.factory.parsing.FailFastProblemReporter}，表现出快速行为的失败。 外部工具可以提供一个替代实现，整理错误和警告以在工具UI中显示。
+	 */
+	private ProblemReporter problemReporter = new FailFastProblemReporter();
+
+	/**
+	 * EmptyReaderEventListener它丢弃每个事件通知。 外部工具可以提供一个替代实现来监视在BeanFactory中注册的组件。
+	 */
+	private ReaderEventListener eventListener = new EmptyReaderEventListener();
+
+	/**
+	 * 默认实现是{@link NullSourceExtractor}，它只返回{@code null}作为源对象。 这意味着 - 在正常运行时执行期间 - 没有额外的源元数据附加到bean配置元数据。
+	 */
+	private SourceExtractor sourceExtractor = new NullSourceExtractor();
+
+	/**
+	 * 如果没有指定，将通过 {@link #createDefaultNamespaceHandlerResolver()} 创建一个 DefaultNamespaceHandlerResolver 默认实例。
+	 */
+	private NamespaceHandlerResolver namespaceHandlerResolver;
+
+	/**
+	 * 使用JAXP加载{@link Document}实例的{@link DefaultDocumentLoader}。
+	 */
+	private DocumentLoader documentLoader = new DefaultDocumentLoader();
+
+	/**
+	 * 默认情况下，将使用{@link ResourceEntityResolver}。 可以被自定义实体解析覆盖，例如相对于某些特定的基本路径。
+	 * 用于解决 xsd dtd 资源的网络加载问题
+	 */
+	private EntityResolver entityResolver;
+
+	/**
+	 * {@code org.xml.sax.ErrorHandler}接口的实现，以便自定义处理XML解析错误和警告。
+	 * 如果未设置，则使用默认的SimpleSaxErrorHandler，它仅使用视图类的记录器实例记录警告，并重新创建错误以停止XML转换。
+	 */
+	private ErrorHandler errorHandler = new SimpleSaxErrorHandler(logger);
+
+	/**
+	 * 检测XML流是否使用基于DTD或XSD的验证。
+	 */
+	private final XmlValidationModeDetector validationModeDetector = new XmlValidationModeDetector();
+
+	private final ThreadLocal<Set<EncodedResource>> resourcesCurrentlyBeingLoaded =
+			new NamedThreadLocal<>("XML bean definition resources currently being loaded");
+
+	@Override
+	public int loadBeanDefinitions(Resource resource) throws BeanDefinitionStoreException {
+		return loadBeanDefinitions(new EncodedResource(resource));
+	}
+
+	public int loadBeanDefinitions(EncodedResource encodedResource) throws BeanDefinitionStoreException {
+		Assert.notNull(encodedResource, "EncodedResource must not be null");
+		if (logger.isInfoEnabled()) {
+			logger.info("Loading XML bean definitions from " + encodedResource.getResource());
+		}
+
+		Set<EncodedResource> currentResources = this.resourcesCurrentlyBeingLoaded.get();
+		if (currentResources == null) {
+			currentResources = new HashSet<>(4);
+			this.resourcesCurrentlyBeingLoaded.set(currentResources);
+		}
+		if (!currentResources.add(encodedResource)) {
+			throw new BeanDefinitionStoreException(
+					"Detected cyclic loading of " + encodedResource + " - check your import definitions!");
+		}
+		try {
+			InputStream inputStream = encodedResource.getResource().getInputStream();
+			try {
+				InputSource inputSource = new InputSource(inputStream);
+				if (encodedResource.getEncoding() != null) {
+					inputSource.setEncoding(encodedResource.getEncoding());
+				}
+				return doLoadBeanDefinitions(inputSource, encodedResource.getResource());
+			}
+			finally {
+				inputStream.close();
+			}
+		}
+		catch (IOException ex) {
+			throw new BeanDefinitionStoreException(
+					"IOException parsing XML document from " + encodedResource.getResource(), ex);
+		}
+		finally {
+			currentResources.remove(encodedResource);
+			if (currentResources.isEmpty()) {
+				this.resourcesCurrentlyBeingLoaded.remove();
+			}
+		}
+	}
+
+	public int loadBeanDefinitions(InputSource inputSource) throws BeanDefinitionStoreException {
+		return loadBeanDefinitions(inputSource, "resource loaded through SAX InputSource");
+	}
+
+	public int loadBeanDefinitions(InputSource inputSource, String resourceDescription)
+			throws BeanDefinitionStoreException {
+		return doLoadBeanDefinitions(inputSource, new DescriptiveResource(resourceDescription));
+	}
+
+
+	/**
+	 * Actually load bean definitions from the specified XML file.
+	 * @param inputSource the SAX InputSource to read from
+	 * @param resource the resource descriptor for the XML file
+	 * @return the number of bean definitions found
+	 * @throws BeanDefinitionStoreException in case of loading or parsing errors
+	 * @see #doLoadDocument
+	 * @see #registerBeanDefinitions
+	 */
+	protected int doLoadBeanDefinitions(InputSource inputSource, Resource resource)
+			throws BeanDefinitionStoreException {
+		try {
+			Document doc = doLoadDocument(inputSource, resource);
+			return registerBeanDefinitions(doc, resource);
+		}
+		catch (BeanDefinitionStoreException ex) {
+			throw ex;
+		}
+		catch (SAXParseException ex) {
+			throw new XmlBeanDefinitionStoreException(resource.getDescription(),
+					"Line " + ex.getLineNumber() + " in XML document from " + resource + " is invalid", ex);
+		}
+		catch (SAXException ex) {
+			throw new XmlBeanDefinitionStoreException(resource.getDescription(),
+					"XML document from " + resource + " is invalid", ex);
+		}
+		catch (ParserConfigurationException ex) {
+			throw new BeanDefinitionStoreException(resource.getDescription(),
+					"Parser configuration exception parsing XML from " + resource, ex);
+		}
+		catch (IOException ex) {
+			throw new BeanDefinitionStoreException(resource.getDescription(),
+					"IOException parsing XML document from " + resource, ex);
+		}
+		catch (Throwable ex) {
+			throw new BeanDefinitionStoreException(resource.getDescription(),
+					"Unexpected exception parsing XML document from " + resource, ex);
+		}
+	}
+
+	/**
+	 * Actually load the specified document using the configured DocumentLoader.
+	 * 实际上使用配置的DocumentLoader加载指定的文档
+	 */
+	protected Document doLoadDocument(InputSource inputSource, Resource resource) throws Exception {
+		return this.documentLoader.loadDocument(inputSource, getEntityResolver(), this.errorHandler,
+				getValidationModeForResource(resource), isNamespaceAware());
+	}
+
+
+	/**
+	 * Register the bean definitions contained in the given DOM document.
+	 * Called by {@code loadBeanDefinitions}.
+	 * <p>Creates a new instance of the parser class and invokes
+	 * {@code registerBeanDefinitions} on it.
+	 *
+	 * 注册给定的DOM文档中包含的bean定义。 由{@code loadBeanDefinitions}调用。
+	 * 创建解析器类的新实例，并调用{@code registerBeanDefinitions}。
+	 *
+	 * @param doc the DOM document
+	 * @param resource the resource descriptor (for context information)
+	 * @return the number of bean definitions found
+	 * @throws BeanDefinitionStoreException in case of parsing errors
+	 * @see #loadBeanDefinitions
+	 * @see #setDocumentReaderClass
+	 * @see BeanDefinitionDocumentReader#registerBeanDefinitions
+	 */
+	public int registerBeanDefinitions(Document doc, Resource resource) throws BeanDefinitionStoreException {
+		BeanDefinitionDocumentReader documentReader = createBeanDefinitionDocumentReader();
+		int countBefore = getRegistry().getBeanDefinitionCount();
+		documentReader.registerBeanDefinitions(doc, createReaderContext(resource));
+		return getRegistry().getBeanDefinitionCount() - countBefore;
+	}
+
+	/**
+	 * Create the {@link BeanDefinitionDocumentReader} to use for actually
+	 * reading bean definitions from an XML document.
+	 * <p>The default implementation instantiates the specified "documentReaderClass".
+	 * @see #setDocumentReaderClass
+	 */
+	protected BeanDefinitionDocumentReader createBeanDefinitionDocumentReader() {
+		return BeanDefinitionDocumentReader.class.cast(BeanUtils.instantiateClass(this.documentReaderClass));
+	}
+
+	/**
+	 * Create the {@link XmlReaderContext} to pass over to the document reader.
+	 */
+	public XmlReaderContext createReaderContext(Resource resource) {
+		return new XmlReaderContext(resource, this.problemReporter, this.eventListener,
+				this.sourceExtractor, this, getNamespaceHandlerResolver());
+	}
+}
+
+```
+##### 3.3.2 [DefaultBeanDefinitionDocumentReader]()
