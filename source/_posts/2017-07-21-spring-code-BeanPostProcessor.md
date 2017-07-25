@@ -27,7 +27,7 @@ DefaultSingletonBeanRegistry.getSingleton ->
 AbstractAutowireCapableBeanFactory.createBean ->
 AbstractAutowireCapableBeanFactory.resolveBeforeInstantiation ->
 AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsBeforeInstantiation ->
-调用InstantiationAwareBeanPostProcessor.postProcessBeforeInstantiation
+InstantiationAwareBeanPostProcessor.postProcessBeforeInstantiation
 
 
 #### 2.2 createBean时，doCreateBean之前，调用InstantiationAwareBeanPostProcessor.postProcessBeforeInstantiation之后bean不为空之后，调用BeanPostProcessor.postProcessAfterInitialization
@@ -36,11 +36,11 @@ DefaultSingletonBeanRegistry.getSingleton ->
 AbstractAutowireCapableBeanFactory.createBean ->
 AbstractAutowireCapableBeanFactory.resolveBeforeInstantiation ->
 AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsAfterInitialization ->
-调用BeanPostProcessor.postProcessAfterInitialization
+BeanPostProcessor.postProcessAfterInitialization
 
 
 ### 3. MergedBeanDefinitionPostProcessor
-#### 3.1 doCreateBean时，createBeanInstance之后，earlySingletonExposure之前。调用MergedBeanDefinitionPostProcessor.postProcessMergedBeanDefinition进行注释融合
+#### 3.1 doCreateBean时，createBeanInstance之后，earlySingletonExposure之前。调用MergedBeanDefinitionPostProcessor.postProcessMergedBeanDefinition 进行注释融合
 AbstractBeanFactory.doGetBean ->
 DefaultSingletonBeanRegistry.getSingleton ->
 AbstractAutowireCapableBeanFactory.createBean ->
@@ -49,7 +49,7 @@ AbstractAutowireCapableBeanFactory.applyMergedBeanDefinitionPostProcessors ->
 MergedBeanDefinitionPostProcessor.postProcessMergedBeanDefinition
 
 ### 4. SmartInstantiationAwareBeanPostProcessor
-#### 4.1 循环引用时，ObjectFactory.getObject获取对象时，调用
+#### 4.1 循环引用时，ObjectFactory.getObject获取对象时，调用SmartInstantiationAwareBeanPostProcessor.getEarlyBeanReference，用于提前返回引用，支持单例的循环引用
 AbstractBeanFactory.doGetBean ->
 DefaultSingletonBeanRegistry.getSingleton ->
 AbstractAutowireCapableBeanFactory.createBean ->
@@ -59,4 +59,42 @@ ObjectFactory.getObject ->
 AbstractAutowireCapableBeanFactory.getEarlyBeanReference ->
 SmartInstantiationAwareBeanPostProcessor.getEarlyBeanReference
 
+### 5. InstantiationAwareBeanPostProcessor
+#### 5.1 populateBean时，在自动装配之前，调用InstantiationAwareBeanPostProcessor.postProcessAfterInstantiation，用于字段注入，可停止属性填充
+AbstractBeanFactory.doGetBean ->
+DefaultSingletonBeanRegistry.getSingleton ->
+AbstractAutowireCapableBeanFactory.createBean ->
+AbstractAutowireCapableBeanFactory.doCreateBean ->
+AbstractAutowireCapableBeanFactory.populateBean ->
+InstantiationAwareBeanPostProcessor.postProcessAfterInstantiation
+
+
+### 6.InstantiationAwareBeanPostProcessor
+#### 6.1 populateBean时，在装配之后，调用InstantiationAwareBeanPostProcessor.postProcessPropertyValues，用于
+AbstractBeanFactory.doGetBean ->
+DefaultSingletonBeanRegistry.getSingleton ->
+AbstractAutowireCapableBeanFactory.createBean ->
+AbstractAutowireCapableBeanFactory.doCreateBean ->
+AbstractAutowireCapableBeanFactory.populateBean ->
+InstantiationAwareBeanPostProcessor.postProcessPropertyValues
+
+
+### 7 BeanPostProcessor
+#### 7.1 initializeBean初始化时，invokeInitMethods之前。调用BeanPostProcessor.postProcessBeforeInitialization
+AbstractBeanFactory.doGetBean ->
+DefaultSingletonBeanRegistry.getSingleton ->
+AbstractAutowireCapableBeanFactory.createBean ->
+AbstractAutowireCapableBeanFactory.doCreateBean ->
+AbstractAutowireCapableBeanFactory.initializeBean ->
+AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsBeforeInitialization ->
+BeanPostProcessor.postProcessBeforeInitialization
+
+#### 7.2 initializeBean初始化时，invokeInitMethods之后。调用BeanPostProcessor.postProcessAfterInitialization
+AbstractBeanFactory.doGetBean ->
+DefaultSingletonBeanRegistry.getSingleton ->
+AbstractAutowireCapableBeanFactory.createBean ->
+AbstractAutowireCapableBeanFactory.doCreateBean ->
+AbstractAutowireCapableBeanFactory.initializeBean ->
+AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsAfterInitialization ->
+BeanPostProcessor.postProcessAfterInitialization
 
