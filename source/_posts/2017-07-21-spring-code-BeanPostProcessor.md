@@ -70,7 +70,7 @@ InstantiationAwareBeanPostProcessor.postProcessAfterInstantiation
 
 
 ### 6.InstantiationAwareBeanPostProcessor
-#### 6.1 populateBean时，在装配之后，调用InstantiationAwareBeanPostProcessor.postProcessPropertyValues，用于
+#### 6.1 populateBean时，在装配之后，调用InstantiationAwareBeanPostProcessor.postProcessPropertyValues，用于Required校验，替换属性等
 AbstractBeanFactory.doGetBean ->
 DefaultSingletonBeanRegistry.getSingleton ->
 AbstractAutowireCapableBeanFactory.createBean ->
