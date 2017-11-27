@@ -8,8 +8,16 @@ categories:
 - code
 ---
 
+
+
+
+
 ### 1. BeanPostProcessor
+
+BeanPostProcessor.postProcessAfterInitialization在FactoryBean单例实例化后，Bean单例实例化后，InstantiationAwareBeanPostProcessor.postProcessBeforeInstantiation返回实例后，都会调用
+
 #### 1.1 FactoryBean构造Bean时，调用BeanPostProcessor.postProcessAfterInitialization
+
 AbstractBeanFactory.doGetBean ->
 AbstractBeanFactory.getObjectForBeanInstance ->
 FactoryBeanRegistrySupport.getObjectFromFactoryBean ->
@@ -81,6 +89,7 @@ InstantiationAwareBeanPostProcessor.postProcessPropertyValues
 
 ### 7 BeanPostProcessor
 #### 7.1 initializeBean初始化时，invokeInitMethods之前。调用BeanPostProcessor.postProcessBeforeInitialization
+用于调用 @注释的 初始化方法等。
 AbstractBeanFactory.doGetBean ->
 DefaultSingletonBeanRegistry.getSingleton ->
 AbstractAutowireCapableBeanFactory.createBean ->
@@ -98,3 +107,11 @@ AbstractAutowireCapableBeanFactory.initializeBean ->
 AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsAfterInitialization ->
 BeanPostProcessor.postProcessAfterInitialization
 
+
+### 8 BeanFactoryPostProcessor
+AbstractApplicationContext 
+
+
+
+### 9 BeanDefinitionRegistryPostProcessor extends BeanFactoryPostProcessor 在BD扫描读取之后，再扫描其他属性获取BD。
+#### 9.1.ConfigurationClassPostProcessor implements BeanDefinitionRegistryPostProcessor, PriorityOrdered, ResourceLoaderAware, BeanClassLoaderAware, EnvironmentAware 扫描 @Configuration 
