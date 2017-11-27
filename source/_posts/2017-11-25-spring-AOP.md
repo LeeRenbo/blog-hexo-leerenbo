@@ -103,3 +103,58 @@ bean - 仅在Spring AOP中支持
 当按名称引用切入点时，将应用普通的Java可见性规则（您可以看到相同类型的私有切入点，层次结构中受保护的切入点，任何位置的公共切入点等）。 可见性不影响切入点匹配。
 
 在使用企业应用程序时，您经常要从几个方面参考应用程序的模块和特定的一组操作。 我们建议定义一个“SystemArchitecture”方面来捕获常见的切入点表达式。
+
+pointcuts优化，AspectJ在编译阶段会优化匹配。匹配分为静态匹配和动态匹配。动态匹配只有在代码运行阶段才能判定是否匹配。并以DNF形式进行组织排序，将开销小的评估放在前面。这意味着你无需关心pointcut的排序问题。
+
+pointcuts分三类：
+- kinded    选择一种特定类型的连接点。例如：execution, get, set, call, handler
+- scoping   选择一组感兴趣的连接点（可能有多种）。例如：within, withincode
+- context   匹配（和可选地绑定）基于上下文。 例如：this, target, @annotation
+一个写得好的切入点应至少包括前两种类型（kinded和scoping），如果希望基于连接点context进行匹配，则可以同事包含上下文标识符，或者将该上下文绑定以用于建议。 只提供一个指定的指示符或仅指定一个上下文指示符将会起作用，但是会由于所有额外的处理和分析而影响编织性能（使用时间和内存）。 范围标识符的匹配速度非常快，而且它们的使用方式意味着AspectJ可以很快地解除不应该进一步处理的连接点组 - 这就是为什么一个好的切入点应该总是包含一个可能的情况。
+
+# 5.2.4 Declaring advice
+```java
+        @Before("execution(* com.xyz.myapp.dao.*.*(..))")
+        public void doAccessCheck() {
+        }
+```
+
+```java
+        @AfterReturning(
+                pointcut="com.xyz.myapp.SystemArchitecture.dataAccessOperation()",
+                returning="retVal")
+        public void doAccessCheck(Object retVal) {
+        }
+```
+returning与advice方法中的参数类型，一起参与匹配。
+
+```java
+        @AfterThrowing(
+                pointcut="com.xyz.myapp.SystemArchitecture.dataAccessOperation()",
+                throwing="ex")
+        public void doRecoveryActions(DataAccessException ex) {
+        }
+
+```
+throwing与advice方法中的参数类型，一起参与匹配。
+
+```java
+        @After("com.xyz.myapp.SystemArchitecture.dataAccessOperation()")
+        public void doReleaseLock() {
+        }
+```
+
+```java
+        @Around("com.xyz.myapp.SystemArchitecture.businessService()")
+        public Object doBasicProfiling(ProceedingJoinPoint pjp) throws Throwable {
+                // start stopwatch
+                Object retVal = pjp.proceed();
+                // stop stopwatch
+                return retVal;
+        }
+
+```
+第一个参数必须是ProceedingJoinPoint类型。
+
+
+
