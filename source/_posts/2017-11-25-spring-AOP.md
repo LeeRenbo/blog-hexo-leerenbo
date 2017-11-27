@@ -155,6 +155,31 @@ throwing与advice方法中的参数类型，一起参与匹配。
 
 ```
 第一个参数必须是ProceedingJoinPoint类型。
+Spring AOP 于 AspectJ 的proceed参数绑定不一样。
 
+任何Advice方法的第一个参数都可以是JoinPoint类型（@Around是子类型ProceedingJoinPoint）
+
+```java
+@Before("com.xyz.myapp.SystemArchitecture.dataAccessOperation() && args(account,..)")
+public void validateAccount(Account account) {
+        // ...
+}
+```
+```java
+@Pointcut("com.xyz.myapp.SystemArchitecture.dataAccessOperation() && args(account,..)")
+private void accountDataAccessOperation(Account account) {}
+
+@Before("accountDataAccessOperation(account)")
+public void validateAccount(Account account) {
+        // ...
+}
+
+```
+使用args可以绑定参数与参数类型
+The proxy object ( this), target object ( target), and annotations ( @within, @target, @annotation, @args)  可以用同样的方式绑定
+
+可使用 args 限定泛型 T 类型。但不支持泛型集合Collection<T>。你必须指定Advice中的参数为Collection<?>类型。然后在方法中自己判断。
+
+参数名称绑定。如果有多个参数需要使用argNames来指定参数名称。旧版的java反射无法获取方法中的参数名称。
 
 
