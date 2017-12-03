@@ -86,7 +86,7 @@ args(java.io.Serializable) 区别 execution(* *(java.io.Serializable))。args，
 
 @args - 限定匹配参数有 annotation 的连接点，常用于绑定形式。advice中可以获取 annotation 对象。
 
-@within - limits matching to join points within types that have the given annotation (the execution of methods declared in types with the given annotation when using Spring AOP)
+@within - limits matching to join points within types that have the given annotation (the execution of methods declared in types with the given annotation when using Spring AOP) 和 @target 一样
 
 @annotation - 限定匹配方法上有 annotation 的连接点，常用于绑定形式。advice中可以获取 annotation 对象。
 
@@ -180,6 +180,106 @@ The proxy object ( this), target object ( target), and annotations ( @within, @t
 
 可使用 args 限定泛型 T 类型。但不支持泛型集合Collection<T>。你必须指定Advice中的参数为Collection<?>类型。然后在方法中自己判断。
 
+```java
+@Before(value="com.xyz.lib.Pointcuts.anyPublicMethod() && target(bean) && @annotation(auditable)",
+                argNames="bean,auditable")
+public void audit(JoinPoint jp, Object bean, Auditable auditable) {
+        AuditCode code = auditable.value();
+        // ... use code, bean, and jp
+}
+```
 参数名称绑定。如果有多个参数需要使用argNames来指定参数名称。旧版的java反射无法获取方法中的参数名称。
+如果第一个参数类型是JoinPoint, ProceedingJoinPoint, JoinPoint.StaticPart。需要跳过第一个参数名称。
+在jdk1.7及之前编译阶段使用 -g:vars 参数，可以不写argNames属性，可以从.class的变量表中读取参数名。在jdk1.8中编译中加 -parameters 参数。会增加额外的元信息。
+    1. 代码反向工程容易理解
+    2. class文件会略微变大
+    3. 删除不使用的本地变量的优化不会执行。
+如果AspectJ编译器（ajc）编译了@AspectJ方面，即使没有调试信息，也不需要添加argNames属性，因为编译器会保留所需的信息。
+如果代码已经被编译而没有必要的调试信息，那么Spring AOP会尝试推断绑定变量与参数的配对（例如，如果在切入点表达式中只绑定了一个变量，而通知方法只有一个参数， 配对是显而易见的！）。 如果给定可用的信息，变量的绑定是不明确的，那么就会抛出一个AmbiguousBindingException异常。
+如果上述所有的策略都失败了，那么IllegalArgumentException将被抛出。
+
+优先级越高，before越先执行，after越后执行。
+org.springframework.core.Ordered  @Order 可以指定优先级，value越小优先级越高。
+
+# 5.2.5 Introductions
+```java
+@Aspect
+public class UsageTracking {
+
+        @DeclareParents(value="com.xzy.myapp.service.*+", defaultImpl=DefaultUsageTracked.class)
+        public static UsageTracked mixin;
+
+        @Before("com.xyz.myapp.SystemArchitecture.businessService() && this(usageTracked)")
+        public void recordUsage(UsageTracked usageTracked) {
+                usageTracked.incrementUseCount();
+        }
+
+}
+
+```
+# 5.2.6 Aspect instantiation models
+
+perthis - 每一个 join point 创建一个 aspect
+pertarget - 每一个 target 创建一个 aspect
+percflow, percflowbelow, and pertypewithin 目前不支持。
+
+
+# 5.4.1 Spring AOP or full AspectJ
+**满足需求的情况下使用最简单的工具。**
+如果，要 advice 非Spring容器管理的bean、属性的getset等非简单方法执行等，需要使用AspectJ。
+
+使用 AspectJ Development Tools 倾向使用 AspectJ language syntax 定义pointcut。否则使用 @AspectJ 并定期使用Java编译，并在构建时加入weaving
+阶段。
+
+# 5.4.2 @AspectJ or XML for Spring AOP?
+XML配置更集中。容易管理。但不符合DRY原则（对系统内的任何知识都应该有一个单一的，明确的，权威的表示。），xml将pointcut声明与advice实现分离。xml不能组合两个 pointcut 组合新的pointcut。
+
+@AspectJ 支持 Aspect instantiation models 和 pointcut 组合。容易移植到 AspectJ 实现上。总的来说，Spring团队只要具有不仅仅是简单的“配置”企业服务的方面，就更喜欢@AspectJ风格。
+
+
+# 5.6 Proxying 机制
+Spring AOP使用JDK动态代理或CGLIB为给定的目标对象创建代理。 （无论何时选择，JDK动态代理都是首选）。
+
+默认，有接口或多个接口使用 JDK 代理所有接口。如果没有接口，用CGLIB代理。
+强制使用 CGLIB 代理：
+* final 方法不能被重写，不能被 advise
+* 3.2 之后包含了CGLIB jar包在 spring-core 中
+* 4.0 之后可以绕过构造方法传参的JVM 只构造一次。否则构造两次。
+
+proxy-target-class="true" 在 <tx:annotation-driven/>, <aop:aspectj-autoproxy/> or <aop:config/> 中只要有，全都生效。
+
+# 5.6.1 理解 AOP 代理
+
+对 Spring 代理的方法调用。通过advice组成的拦截器之后，调用到target对象方法本身。target方法内的调用都是针对this(target对象)的调用。而不是proxy对象的调用。
+AopContext.currentProxy() 可以获取代理对象。
+AspectJ 不存在这种自我调用问题，因为AspectJ不是基于代理的AOP。
+
+# 5.7. 程序创建 @AspectJ Proxies
+
+```java
+// create a factory that can generate a proxy for the given target object
+AspectJProxyFactory factory = new AspectJProxyFactory(targetObject);
+
+// add an aspect, the class must be an @AspectJ aspect
+// you can call this as many times as you need with different aspects
+factory.addAspect(SecurityManager.class);
+
+// you can also add existing aspect instances, the type of the object supplied must be an @AspectJ aspect
+factory.addAspect(usageTracker);
+
+// now get the proxy object...
+MyInterfaceType proxy = factory.getProxy();
+```
+
+# 5.8 在Spring应用程序中使用AspectJ
+
+# 5.8.1 使用AspectJ向Spring依赖注入域对象
+
+
+call(void Point.setX(int))
+
+
+
+
 
 
