@@ -160,7 +160,7 @@ Spring AOP 于 AspectJ 的proceed参数绑定不一样。
 任何Advice方法的第一个参数都可以是JoinPoint类型（@Around是子类型ProceedingJoinPoint）
 
 ```java
-@Before("com.xyz.myapp.SystemArchitecture.dataAccessOperation() && args(account,..)")
+@Before("com.xyz.myapp.SystemArchitecture.dataAccessO peration() && args(account,..)")
 public void validateAccount(Account account) {
         // ...
 }
